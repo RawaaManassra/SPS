@@ -20,6 +20,9 @@ class ForgotPasswordScreen extends StatelessWidget {
               Color(0xFFE8F3EF),
               Color(0xFFF7F4ED),
             ],
+
+
+
           ),
         ),
         child: SafeArea(
