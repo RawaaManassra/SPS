@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'driver_main_screen.dart';
+import 'package:flut/features/driver/shell/driver_shell_screen.dart';
+
 import 'forgot_password_screen.dart';
 import 'signup_screen.dart';
 
@@ -126,7 +127,7 @@ class LoginScreen extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const DriverMainScreen(),
+                                builder: (_) => const DriverShellScreen(),
                               ),
                             );
                           },

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class SelectVehicleScreen extends StatefulWidget {
-  const SelectVehicleScreen({super.key});
+class StartParkingScreen extends StatefulWidget {
+  const StartParkingScreen({super.key});
 
   @override
-  State<SelectVehicleScreen> createState() => _SelectVehicleScreenState();
+  State<StartParkingScreen> createState() => _StartParkingScreenState();
 }
 
-class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
+class _StartParkingScreenState extends State<StartParkingScreen> {
   int _currentStep = 0;
   int _selectedVehicleIndex = 0;
   int _selectedDurationMinutes = 30;

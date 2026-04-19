@@ -1,0 +1,362 @@
+import 'package:flutter/material.dart';
+
+class DriverHomeScreen extends StatelessWidget {
+  const DriverHomeScreen({
+    super.key,
+    required this.hasActiveSession,
+    required this.onStartSession,
+    required this.onEndSession,
+  });
+
+  final bool hasActiveSession;
+  final VoidCallback onStartSession;
+  final VoidCallback onEndSession;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF0F766E),
+                Color(0xFF17867D),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'مرحباً، روعة',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'إدارة جلسات الوقوف والمركبات من مكان واحد.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'رصيد المحفظة',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '42.00 شيكل',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        if (hasActiveSession)
+          ActiveSessionCard(onEndSession: onEndSession)
+        else
+          EmptySessionCard(onStartSession: onStartSession),
+        const SizedBox(height: 18),
+        const AppMessageCard(),
+      ],
+    );
+  }
+}
+
+class AppMessageCard extends StatelessWidget {
+  const AppMessageCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0E7D6),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.verified_user_outlined,
+              color: Color(0xFFC8922E),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              'موقفي يساعدك تدير وقوفك بسهولة، وتتابع وقتك ومركباتك بدون الرجوع للعدادات التقليدية.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF3F3A2F),
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class EmptySessionCard extends StatelessWidget {
+  const EmptySessionCard({
+    super.key,
+    required this.onStartSession,
+  });
+
+  final VoidCallback onStartSession;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SectionCard(
+      title: 'حالة الوقوف الحالية',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'لا توجد جلسة وقوف نشطة حالياً.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'ابدأ جلسة جديدة باختيار المركبة والموقع والمدة وطريقة الدفع.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF5B6472),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: onStartSession,
+            icon: const Icon(Icons.local_parking_outlined),
+            label: const Text('ابدأ جلسة وقوف'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ActiveSessionCard extends StatelessWidget {
+  const ActiveSessionCard({
+    super.key,
+    required this.onEndSession,
+  });
+
+  final VoidCallback onEndSession;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SectionCard(
+      title: 'جلسة وقوف نشطة',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: SizedBox(
+              width: 170,
+              height: 170,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 160,
+                    height: 160,
+                    child: CircularProgressIndicator(
+                      value: 0.67,
+                      strokeWidth: 12,
+                      backgroundColor: const Color(0xFFE7E1D6),
+                      color: const Color(0xFF0F766E),
+                      strokeCap: StrokeCap.round,
+                    ),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '20',
+                        style: theme.textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF0F766E),
+                        ),
+                      ),
+                      Text(
+                        'دقيقة متبقية',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF5B6472),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const SessionDetailRow(
+            icon: Icons.directions_car_outlined,
+            label: 'المركبة',
+            value: '24-381-15',
+          ),
+          const SessionDetailRow(
+            icon: Icons.place_outlined,
+            label: 'الموقع',
+            value: 'الموقع الحالي',
+          ),
+          const SessionDetailRow(
+            icon: Icons.payments_outlined,
+            label: 'الدفع',
+            value: 'المحفظة',
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {},
+                  child: const Text('تمديد الوقت'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onEndSession,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 54),
+                    side: const BorderSide(color: Color(0xFF0F766E)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  child: const Text('إنهاء الجلسة'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SessionDetailRow extends StatelessWidget {
+  const SessionDetailRow({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF0F766E)),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF5B6472),
+                ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SectionCard extends StatelessWidget {
+  const SectionCard({
+    super.key,
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
