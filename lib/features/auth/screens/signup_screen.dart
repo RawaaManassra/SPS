@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'login_screen.dart';
+
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -10,6 +12,7 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   int _currentStep = 0;
   bool _identityImageSelected = false;
+  bool _isSubmitting = false;
 
   final _personalFormKey = GlobalKey<FormState>();
   final _vehiclesFormKey = GlobalKey<FormState>();
@@ -120,21 +123,32 @@ class _SignupScreenState extends State<SignupScreen> {
                 _buildCurrentStep(),
                 const SizedBox(height: 18),
                 ElevatedButton(
-                  onPressed: _handlePrimaryAction,
-                  child: Text(_currentStep < 2 ? 'متابعة' : 'إنشاء الحساب'),
+                  onPressed: _isSubmitting ? null : _handlePrimaryAction,
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(_currentStep < 2 ? 'متابعة' : 'إنشاء الحساب'),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
-                  onPressed: () {
-                    if (_currentStep > 0) {
-                      setState(() {
-                        _currentStep -= 1;
-                      });
-                      return;
-                    }
+                  onPressed: _isSubmitting
+                      ? null
+                      : () {
+                          if (_currentStep > 0) {
+                            setState(() {
+                              _currentStep -= 1;
+                            });
+                            return;
+                          }
 
-                    Navigator.pop(context);
-                  },
+                          Navigator.pop(context);
+                        },
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 54),
                     side: const BorderSide(color: Color(0xFF0F766E)),
@@ -173,7 +187,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   label: 'رقم الهوية',
                   icon: Icons.badge_outlined,
                   keyboardType: TextInputType.number,
-                  required: true,
+                  validator: _identityValidator,
                 ),
                 const SizedBox(height: 14),
                 _SignupField(
@@ -181,7 +195,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   label: 'رقم الجوال',
                   icon: Icons.phone_iphone_rounded,
                   keyboardType: TextInputType.phone,
-                  required: true,
+                  validator: _phoneValidator,
                 ),
                 const SizedBox(height: 14),
                 _SignupField(
@@ -197,7 +211,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   label: 'كلمة المرور',
                   icon: Icons.lock_outline_rounded,
                   obscureText: true,
-                  required: true,
+                  validator: _passwordValidator,
                 ),
                 const SizedBox(height: 14),
                 _SignupField(
@@ -257,15 +271,14 @@ class _SignupScreenState extends State<SignupScreen> {
                   label: 'رقم الهوية',
                   icon: Icons.badge_outlined,
                   keyboardType: TextInputType.number,
-                  required: true,
+                  validator: _identityValidator,
                 ),
                 const SizedBox(height: 14),
                 _UploadHintCard(
                   title: 'صورة الهوية *',
-                  subtitle:
-                      _identityImageSelected
-                          ? 'تم اختيار صورة الهوية.'
-                          : 'أضف صورة واضحة للهوية لاستخدامها في التحقق من الحساب.',
+                  subtitle: _identityImageSelected
+                      ? 'تم اختيار صورة الهوية.'
+                      : 'أضف صورة واضحة للهوية لاستخدامها في التحقق من الحساب.',
                   buttonLabel:
                       _identityImageSelected ? 'تغيير الصورة' : 'اختيار صورة',
                   icon: Icons.upload_file_rounded,
@@ -283,7 +296,9 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  void _handlePrimaryAction() {
+  Future<void> _handlePrimaryAction() async {
+    FocusScope.of(context).unfocus();
+
     if (!_validateCurrentStep()) {
       return;
     }
@@ -295,10 +310,22 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم تجهيز خطوات التسجيل للربط مع الـ API لاحقاً.'),
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(
+          successMessage: 'تم إنشاء الحساب بنجاح. يمكنك تسجيل الدخول الآن.',
+        ),
       ),
+      (route) => false,
     );
   }
 
@@ -330,6 +357,45 @@ class _SignupScreenState extends State<SignupScreen> {
 
     if (!email.contains('@') || !email.contains('.')) {
       return 'أدخل بريد إلكتروني صحيح أو اترك الحقل فارغاً';
+    }
+
+    return null;
+  }
+
+  String? _identityValidator(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    if (text.length < 6) {
+      return 'أدخل رقم هوية صحيح';
+    }
+
+    return null;
+  }
+
+  String? _phoneValidator(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    if (text.length < 9) {
+      return 'أدخل رقم جوال صحيح';
+    }
+
+    return null;
+  }
+
+  String? _passwordValidator(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    if (text.length < 6) {
+      return 'كلمة المرور يجب أن تكون 6 أحرف أو أكثر';
     }
 
     return null;
@@ -386,8 +452,9 @@ class _StepProgress extends StatelessWidget {
             child: Container(
               height: 1.5,
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              color:
-                  isDone ? const Color(0xFF0F766E) : const Color(0xFFD8D2C7),
+              color: isDone
+                  ? const Color(0xFF0F766E)
+                  : const Color(0xFFD8D2C7),
             ),
           );
         }
@@ -439,21 +506,19 @@ class _ProgressNode extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child:
-              isDone
-                  ? const Icon(
-                    Icons.check_rounded,
-                    size: 16,
-                    color: Colors.white,
-                  )
-                  : Text(
-                    '$number',
-                    style: TextStyle(
-                      color:
-                          isActive ? Colors.white : const Color(0xFF6B7280),
-                      fontWeight: FontWeight.w800,
-                    ),
+          child: isDone
+              ? const Icon(
+                  Icons.check_rounded,
+                  size: 16,
+                  color: Colors.white,
+                )
+              : Text(
+                  '$number',
+                  style: TextStyle(
+                    color: isActive ? Colors.white : const Color(0xFF6B7280),
+                    fontWeight: FontWeight.w800,
                   ),
+                ),
         ),
         const SizedBox(height: 4),
         SizedBox(
@@ -462,10 +527,10 @@ class _ProgressNode extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontSize: 10,
-              color: textColor,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-            ),
+                  fontSize: 10,
+                  color: textColor,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                ),
           ),
         ),
       ],
@@ -531,17 +596,39 @@ class _VehicleFields extends StatelessWidget {
           controller: data.plateController,
           label: 'رقم اللوحة',
           icon: Icons.pin_outlined,
-          required: true,
+          validator: _plateValidator,
         ),
         const SizedBox(height: 14),
         _SignupField(
           controller: data.modelController,
           label: 'موديل السيارة',
           icon: Icons.directions_car_filled_outlined,
-          required: true,
+          validator: _modelValidator,
         ),
       ],
     );
+  }
+
+  String? _plateValidator(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    if (text.length < 4) {
+      return 'أدخل رقم لوحة صحيح';
+    }
+
+    return null;
+  }
+
+  String? _modelValidator(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    return null;
   }
 }
 

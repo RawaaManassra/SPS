@@ -12,6 +12,23 @@ class ResetPasswordScreen extends StatefulWidget {
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   int _currentStep = 0;
 
+  final _codeFormKey = GlobalKey<FormState>();
+  final _passwordFormKey = GlobalKey<FormState>();
+
+  final _codeController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -52,94 +69,100 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 _ResetTabs(currentStep: _currentStep),
                 const SizedBox(height: 18),
                 if (_currentStep == 0)
-                  const _ResetSection(
+                  _ResetSection(
                     title: 'رمز التحقق',
                     subtitle: 'أدخل الرمز الذي وصلك برسالة نصية على رقم الجوال.',
                     icon: Icons.verified_user_outlined,
-                    child: Column(
-                      children: [
-                        TextField(
-                          keyboardType: TextInputType.number,
-                          textAlign: TextAlign.center,
-                          decoration: InputDecoration(
-                            labelText: 'رمز التحقق',
-                            prefixIcon: Icon(Icons.password_rounded),
+                    child: Form(
+                      key: _codeFormKey,
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _codeController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            validator: _codeValidator,
+                            decoration: const InputDecoration(
+                              labelText: 'رمز التحقق',
+                              prefixIcon: Icon(Icons.password_rounded),
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 14),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            onPressed: null,
-                            child: Text('إعادة إرسال الرمز'),
+                          const SizedBox(height: 14),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              onPressed: null,
+                              child: Text('إعادة إرسال الرمز'),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   )
                 else
-                  const _ResetSection(
+                  _ResetSection(
                     title: 'كلمة المرور الجديدة',
                     subtitle: 'أدخل كلمة مرور جديدة ثم قم بتأكيدها.',
                     icon: Icons.lock_reset_rounded,
-                    child: Column(
-                      children: [
-                        TextField(
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            labelText: 'كلمة المرور الجديدة',
-                            prefixIcon: Icon(Icons.lock_outline_rounded),
+                    child: Form(
+                      key: _passwordFormKey,
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            validator: _passwordValidator,
+                            decoration: const InputDecoration(
+                              labelText: 'كلمة المرور الجديدة',
+                              prefixIcon: Icon(Icons.lock_outline_rounded),
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 14),
-                        TextField(
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            labelText: 'تأكيد كلمة المرور الجديدة',
-                            prefixIcon: Icon(Icons.lock_reset_rounded),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: true,
+                            validator: _confirmPasswordValidator,
+                            decoration: const InputDecoration(
+                              labelText: 'تأكيد كلمة المرور الجديدة',
+                              prefixIcon: Icon(Icons.lock_reset_rounded),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 const SizedBox(height: 18),
                 ElevatedButton(
-                  onPressed: () {
-                    if (_currentStep == 0) {
-                      setState(() {
-                        _currentStep = 1;
-                      });
-                      return;
-                    }
-
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const LoginScreen(),
-                      ),
-                      (route) => false,
-                    );
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.'),
-                      ),
-                    );
-                  },
-                  child: Text(_currentStep == 0 ? 'تحقق من الرمز' : 'حفظ وتسجيل الدخول'),
+                  onPressed: _isSubmitting ? null : _submitCurrentStep,
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          _currentStep == 0
+                              ? 'تحقق من الرمز'
+                              : 'حفظ وتسجيل الدخول',
+                        ),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
-                  onPressed: () {
-                    if (_currentStep == 1) {
-                      setState(() {
-                        _currentStep = 0;
-                      });
-                      return;
-                    }
+                  onPressed: _isSubmitting
+                      ? null
+                      : () {
+                          if (_currentStep == 1) {
+                            setState(() {
+                              _currentStep = 0;
+                            });
+                            return;
+                          }
 
-                    Navigator.pop(context);
-                  },
+                          Navigator.pop(context);
+                        },
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 54),
                     side: const BorderSide(color: Color(0xFF0F766E)),
@@ -147,7 +170,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  child: Text(_currentStep == 0 ? 'رجوع' : 'العودة لخطوة الرمز'),
+                  child: Text(
+                    _currentStep == 0 ? 'رجوع' : 'العودة لخطوة الرمز',
+                  ),
                 ),
               ],
             ),
@@ -155,6 +180,82 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _submitCurrentStep() async {
+    FocusScope.of(context).unfocus();
+
+    final isValid = _currentStep == 0
+        ? (_codeFormKey.currentState?.validate() ?? false)
+        : (_passwordFormKey.currentState?.validate() ?? false);
+
+    if (!isValid) {
+      return;
+    }
+
+    if (_currentStep == 0) {
+      setState(() {
+        _currentStep = 1;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(
+          successMessage: 'تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.',
+        ),
+      ),
+      (route) => false,
+    );
+  }
+
+  String? _codeValidator(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    if (text.length < 4) {
+      return 'أدخل رمز تحقق صحيح';
+    }
+
+    return null;
+  }
+
+  String? _passwordValidator(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    if (text.length < 6) {
+      return 'كلمة المرور يجب أن تكون 6 أحرف أو أكثر';
+    }
+
+    return null;
+  }
+
+  String? _confirmPasswordValidator(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return 'هذا الحقل مطلوب';
+    }
+
+    if (text != _passwordController.text.trim()) {
+      return 'كلمة المرور غير متطابقة';
+    }
+
+    return null;
   }
 }
 
