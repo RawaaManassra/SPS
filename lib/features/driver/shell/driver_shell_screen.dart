@@ -55,7 +55,9 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
           const DriverMapScreen(),
           const DriverHistoryScreen(),
           const DriverVehiclesScreen(),
-          const DriverProfileScreen(),
+          DriverProfileScreen(
+            onLogout: _handleLogout,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -113,5 +115,9 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
         _currentIndex = 0;
       });
     }
+  }
+
+  void _handleLogout() {
+    Navigator.popUntil(context, (route) => route.isFirst);
   }
 }
