@@ -6,11 +6,13 @@ class DriverHomeScreen extends StatelessWidget {
     required this.hasActiveSession,
     required this.onStartSession,
     required this.onEndSession,
+    required this.onOpenViolations,
   });
 
   final bool hasActiveSession;
   final VoidCallback onStartSession;
   final VoidCallback onEndSession;
+  final VoidCallback onOpenViolations;
 
   @override
   Widget build(BuildContext context) {
@@ -44,14 +46,14 @@ class DriverHomeScreen extends StatelessWidget {
               Text(
                 'إدارة جلسات الوقوف والمركبات من مكان واحد.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                 ),
               ),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.16),
+                  color: Colors.white.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -88,8 +90,90 @@ class DriverHomeScreen extends StatelessWidget {
         else
           EmptySessionCard(onStartSession: onStartSession),
         const SizedBox(height: 18),
+        HomeViolationsCard(onOpenViolations: onOpenViolations),
+        const SizedBox(height: 18),
         const AppMessageCard(),
       ],
+    );
+  }
+}
+
+class HomeViolationsCard extends StatelessWidget {
+  const HomeViolationsCard({
+    super.key,
+    required this.onOpenViolations,
+  });
+
+  final VoidCallback onOpenViolations;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF6E8),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: const Color(0xFFF0D39B),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE7BF),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.gpp_good_outlined,
+                  color: Color(0xFFC8922E),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'متابعة المخالفات',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'لديك مخالفة غير مدفوعة تحتاج إلى متابعة.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF5B6472),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: onOpenViolations,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 54),
+              side: const BorderSide(color: Color(0xFFC8922E)),
+              foregroundColor: const Color(0xFF8D6417),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            child: const Text('عرض المخالفات'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -113,7 +197,7 @@ class AppMessageCard extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
@@ -341,7 +425,7 @@ class SectionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(

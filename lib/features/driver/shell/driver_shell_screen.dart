@@ -6,6 +6,7 @@ import 'package:flut/features/driver/map/driver_map_screen.dart';
 import 'package:flut/features/driver/parking/start_parking_screen.dart';
 import 'package:flut/features/driver/profile/driver_profile_screen.dart';
 import 'package:flut/features/driver/vehicles/driver_vehicles_screen.dart';
+import 'package:flut/features/driver/violations/driver_violations_screen.dart';
 
 class DriverShellScreen extends StatefulWidget {
   const DriverShellScreen({super.key});
@@ -51,6 +52,7 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
                 _hasActiveSession = false;
               });
             },
+            onOpenViolations: _openViolations,
           ),
           const DriverMapScreen(),
           const DriverHistoryScreen(),
@@ -115,6 +117,14 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
         _currentIndex = 0;
       });
     }
+  }
+
+  Future<void> _openViolations() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const DriverViolationsScreen(),
+      ),
+    );
   }
 
   void _handleLogout() {

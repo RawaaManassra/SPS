@@ -1,78 +1,151 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 class DriverMapScreen extends StatelessWidget {
   const DriverMapScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return const _DriverPlaceholderScreen(
-      title: 'الخريطة',
-      description: 'هنا ستظهر خريطة المواقف والحالة المباشرة لاحقاً.',
-      icon: Icons.map_outlined,
-    );
-  }
-}
+  static const LatLng _hebronCenter = LatLng(31.5326, 35.0998);
 
-class _DriverPlaceholderScreen extends StatelessWidget {
-  const _DriverPlaceholderScreen({
-    required this.title,
-    required this.description,
-    required this.icon,
-  });
-
-  final String title;
-  final String description;
-  final IconData icon;
+  static const List<_ParkingZone> _parkingZones = [
+    _ParkingZone(
+      name: 'منطقة باب الزاوية',
+      location: LatLng(31.5326, 35.0998),
+      isAvailable: true,
+    ),
+    _ParkingZone(
+      name: 'منطقة عين سارة',
+      location: LatLng(31.5299, 35.1027),
+      isAvailable: false,
+    ),
+    _ParkingZone(
+      name: 'منطقة البلدية',
+      location: LatLng(31.5355, 35.0969),
+      isAvailable: true,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.88),
-            borderRadius: BorderRadius.circular(30),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+      children: [
+        Text(
+          'الخريطة',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'خريطة أولية توضّح مناطق الوقوف القريبة داخل الخليل.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: const Color(0xFF5B6472),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          height: 360,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 20,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: FlutterMap(
+            options: const MapOptions(
+              initialCenter: _hebronCenter,
+              initialZoom: 15.2,
+            ),
             children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE7F2EF),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Icon(
-                  icon,
-                  color: const Color(0xFF0F766E),
-                  size: 34,
-                ),
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.flut',
               ),
-              const SizedBox(height: 18),
-              Text(
-                title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              MarkerLayer(
+                markers: _parkingZones
+                    .map(
+                      (zone) => Marker(
+                        point: zone.location,
+                        width: 120,
+                        height: 72,
+                        child: _MapMarker(zone: zone),
+                      ),
+                    )
+                    .toList(),
               ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF5B6472),
-                ),
+              RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    'OpenStreetMap contributors',
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
+}
+
+class _MapMarker extends StatelessWidget {
+  const _MapMarker({required this.zone});
+
+  final _ParkingZone zone;
+
+  @override
+  Widget build(BuildContext context) {
+    final markerColor =
+        zone.isAvailable ? const Color(0xFF0F766E) : const Color(0xFFC8922E);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            zone.name,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: markerColor,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ParkingZone {
+  const _ParkingZone({
+    required this.name,
+    required this.location,
+    required this.isAvailable,
+  });
+
+  final String name;
+  final LatLng location;
+  final bool isAvailable;
 }
