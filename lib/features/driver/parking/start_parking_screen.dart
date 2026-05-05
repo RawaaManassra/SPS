@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/driver/parking/driver_parking_session.dart';
+import 'package:flut/features/driver/vehicles/driver_vehicle_form_screen.dart';
+
 class StartParkingScreen extends StatefulWidget {
   const StartParkingScreen({super.key});
 
@@ -12,18 +15,20 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
   int _selectedVehicleIndex = 0;
   int _selectedDurationMinutes = 30;
   int _selectedPaymentIndex = 0;
-  bool _locationAllowed = true;
+  bool _useCurrentLocation = true;
+  bool _isSubmitting = false;
+  final TextEditingController _qrController = TextEditingController();
 
-  static const _vehicles = [
-    _VehicleItem(
+  final List<_VehicleItem> _vehicles = [
+    const _VehicleItem(
       plateNumber: '24-381-15',
       model: 'Hyundai i20',
       tag: 'المركبة الأساسية',
     ),
-    _VehicleItem(
+    const _VehicleItem(
       plateNumber: '31-662-08',
       model: 'Kia Picanto',
-      tag: 'مركبة إضافية',
+      tag: 'مركبة مضافة',
     ),
   ];
 
@@ -39,6 +44,12 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
     'اختيار المدة',
     'الدفع والتأكيد',
   ];
+
+  @override
+  void dispose() {
+    _qrController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,12 +101,18 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
               _buildStepContent(),
               const SizedBox(height: 18),
               ElevatedButton(
-                onPressed: _goNext,
-                child: Text(_currentStep == 3 ? 'تأكيد وبدء الجلسة' : 'متابعة'),
+                onPressed: _isSubmitting ? null : _goNext,
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                      )
+                    : Text(_currentStep == 3 ? 'تأكيد وبدء الجلسة' : 'متابعة'),
               ),
               const SizedBox(height: 12),
               OutlinedButton(
-                onPressed: _goBack,
+                onPressed: _isSubmitting ? null : _goBack,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 54),
                   side: const BorderSide(color: Color(0xFF0F766E)),
@@ -117,11 +134,11 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
       case 0:
         return 'اختر المركبة التي تريد بدء جلسة الوقوف لها.';
       case 1:
-        return 'سنستخدم موقعك الحالي لتحديد مكان الوقوف، أو يمكنك استخدام رمز QR كبديل.';
+        return 'يمكنك استخدام موقعك الحالي أو إدخال رمز QR الموجود في مكان الوقوف.';
       case 2:
-        return 'اختر مدة الوقوف. أقل مدة هي 30 دقيقة بسعر 1 شيكل.';
+        return 'أقل مدة للوقوف هي 30 دقيقة بسعر 1 شيكل، والسعر يزيد كل نصف ساعة.';
       default:
-        return 'راجع تفاصيل الجلسة واختر طريقة الدفع قبل البدء.';
+        return 'راجع تفاصيل الجلسة وطريقة الدفع قبل بدء الوقوف.';
     }
   }
 
@@ -136,13 +153,15 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
               _selectedVehicleIndex = index;
             });
           },
+          onAddVehicle: _openVehicleForm,
         );
       case 1:
         return _LocationStep(
-          locationAllowed: _locationAllowed,
-          onLocationModeChanged: (allowed) {
+          useCurrentLocation: _useCurrentLocation,
+          qrController: _qrController,
+          onLocationModeChanged: (value) {
             setState(() {
-              _locationAllowed = allowed;
+              _useCurrentLocation = value;
             });
           },
         );
@@ -154,7 +173,6 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
             if (_selectedDurationMinutes == 30) {
               return;
             }
-
             setState(() {
               _selectedDurationMinutes -= 30;
             });
@@ -172,7 +190,7 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
             minutes: _selectedDurationMinutes,
             price: _priceForDuration(_selectedDurationMinutes),
           ),
-          locationAllowed: _locationAllowed,
+          locationLabel: _locationLabel,
           methods: _paymentMethods,
           selectedMethodIndex: _selectedPaymentIndex,
           onPaymentSelected: (index) {
@@ -184,7 +202,51 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
     }
   }
 
-  void _goNext() {
+  String get _locationLabel {
+    if (_useCurrentLocation) {
+      return 'الموقع الحالي';
+    }
+
+    final qr = _qrController.text.trim();
+    return qr.isEmpty ? 'رمز QR' : 'رمز QR: $qr';
+  }
+
+  Future<void> _openVehicleForm() async {
+    final result = await Navigator.of(context).push<DriverVehicleFormResult>(
+      MaterialPageRoute(
+        builder: (_) => const DriverVehicleFormScreen(
+          title: 'إضافة مركبة جديدة',
+          actionLabel: 'إضافة المركبة',
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    setState(() {
+      _vehicles.add(
+        _VehicleItem(
+          plateNumber: result.plateNumber,
+          model: result.model,
+          tag: 'مركبة مضافة',
+        ),
+      );
+      _selectedVehicleIndex = _vehicles.length - 1;
+    });
+  }
+
+  Future<void> _goNext() async {
+    if (_currentStep == 1 && !_useCurrentLocation && _qrController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('أدخل رمز QR أو كود الموقف قبل المتابعة.'),
+        ),
+      );
+      return;
+    }
+
     if (_currentStep < 3) {
       setState(() {
         _currentStep += 1;
@@ -192,12 +254,38 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
       return;
     }
 
-    Navigator.pop(context, true);
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+
+    if (!mounted) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final duration = Duration(minutes: _selectedDurationMinutes);
+    final selectedVehicle = _vehicles[_selectedVehicleIndex];
+    final selectedPaymentMethod = _paymentMethods[_selectedPaymentIndex];
+
+    Navigator.of(context).pop(
+      DriverParkingSession(
+        vehiclePlateNumber: selectedVehicle.plateNumber,
+        vehicleModel: selectedVehicle.model,
+        locationLabel: _locationLabel,
+        paymentMethodLabel: selectedPaymentMethod.title,
+        durationMinutes: _selectedDurationMinutes,
+        totalPrice: _priceForDuration(_selectedDurationMinutes),
+        startedAt: now,
+        endsAt: now.add(duration),
+      ),
+    );
   }
 
   void _goBack() {
     if (_currentStep == 0) {
-      Navigator.pop(context);
+      Navigator.of(context).pop();
       return;
     }
 
@@ -216,11 +304,13 @@ class _VehicleStep extends StatelessWidget {
     required this.vehicles,
     required this.selectedIndex,
     required this.onSelected,
+    required this.onAddVehicle,
   });
 
   final List<_VehicleItem> vehicles;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onAddVehicle;
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +325,7 @@ class _VehicleStep extends StatelessWidget {
           const SizedBox(height: 12),
         ],
         OutlinedButton.icon(
-          onPressed: () {},
+          onPressed: onAddVehicle,
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 54),
             side: const BorderSide(color: Color(0xFF0F766E)),
@@ -253,11 +343,13 @@ class _VehicleStep extends StatelessWidget {
 
 class _LocationStep extends StatelessWidget {
   const _LocationStep({
-    required this.locationAllowed,
+    required this.useCurrentLocation,
+    required this.qrController,
     required this.onLocationModeChanged,
   });
 
-  final bool locationAllowed;
+  final bool useCurrentLocation;
+  final TextEditingController qrController;
   final ValueChanged<bool> onLocationModeChanged;
 
   @override
@@ -268,27 +360,28 @@ class _LocationStep extends StatelessWidget {
         children: [
           _ChoiceTile(
             title: 'استخدام موقعي الحالي',
-            subtitle: 'قف في مكان الوقوف واضغط متابعة بعد السماح بالوصول للموقع.',
+            subtitle: 'قف في مكان الوقوف واسمح للتطبيق بالوصول إلى الموقع.',
             icon: Icons.my_location_rounded,
-            selected: locationAllowed,
+            selected: useCurrentLocation,
             onTap: () => onLocationModeChanged(true),
           ),
           const SizedBox(height: 12),
           _ChoiceTile(
             title: 'استخدام رمز QR',
-            subtitle: 'إذا لم ترغب بتفعيل الموقع، استخدم رمز QR الموجود في مكان الوقوف.',
+            subtitle: 'إذا لم ترغب في تفعيل الموقع، أدخل رمز QR الموجود في مكان الوقوف.',
             icon: Icons.qr_code_2_rounded,
-            selected: !locationAllowed,
+            selected: !useCurrentLocation,
             onTap: () => onLocationModeChanged(false),
           ),
           const SizedBox(height: 18),
-          if (locationAllowed)
+          if (useCurrentLocation)
             const _InfoBox(
-              text: 'سيتم تسجيل موقع الجلسة وإظهاره على الخريطة بعد بدء الوقوف.',
+              text: 'سيتم استخدام موقعك الحالي لتسجيل مكان الجلسة وإظهاره لاحقاً على الخريطة.',
             )
           else
-            const TextField(
-              decoration: InputDecoration(
+            TextField(
+              controller: qrController,
+              decoration: const InputDecoration(
                 labelText: 'رمز QR أو كود الموقف',
                 prefixIcon: Icon(Icons.qr_code_scanner_rounded),
               ),
@@ -315,15 +408,8 @@ class _DurationStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hours = minutes ~/ 60;
-    final remainingMinutes = minutes % 60;
-    final durationLabel = hours == 0
-        ? '$minutes دقيقة'
-        : remainingMinutes == 0
-            ? hours == 1
-                ? 'ساعة واحدة'
-                : '$hours ساعات'
-            : '$hours ساعة و $remainingMinutes دقيقة';
+    final durationOption = _DurationOption(minutes: minutes, price: price);
+    final progress = (minutes / 180).clamp(0.2, 1.0);
 
     return _WhiteCard(
       child: Column(
@@ -340,33 +426,52 @@ class _DurationStep extends StatelessWidget {
                     width: 170,
                     height: 170,
                     child: CircularProgressIndicator(
-                      value: 0.75,
+                      value: progress.toDouble(),
                       strokeWidth: 12,
                       backgroundColor: const Color(0xFFE7E1D6),
                       color: const Color(0xFF0F766E),
                       strokeCap: StrokeCap.round,
                     ),
                   ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        durationLabel,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF0F766E),
+                  SizedBox(
+                    width: 118,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          durationOption.primaryLabel,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF0F766E),
+                            fontSize: 22,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '$price شيكل',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: const Color(0xFF5B6472),
-                          fontWeight: FontWeight.w800,
+                        if (durationOption.secondaryLabel != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            durationOption.secondaryLabel!,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F766E),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Text(
+                          '$price شيكل',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: const Color(0xFF5B6472),
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -393,15 +498,14 @@ class _DurationStep extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onIncrease,
                   icon: const Icon(Icons.add_rounded),
-                  label: const Text('زِد نصف ساعة'),
+                  label: const Text('زد نصف ساعة'),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
           const _InfoBox(
-            text:
-                'السعر تراكمي: كل 30 دقيقة = 1 شيكل. يمكنك زيادة الوقت حسب حاجتك.',
+            text: 'كل 30 دقيقة = 1 شيكل، ويمكنك تمديد الوقت لاحقاً بعد تأكيد الدفع.',
           ),
         ],
       ),
@@ -413,7 +517,7 @@ class _PaymentStep extends StatelessWidget {
   const _PaymentStep({
     required this.vehicle,
     required this.duration,
-    required this.locationAllowed,
+    required this.locationLabel,
     required this.methods,
     required this.selectedMethodIndex,
     required this.onPaymentSelected,
@@ -421,7 +525,7 @@ class _PaymentStep extends StatelessWidget {
 
   final _VehicleItem vehicle;
   final _DurationOption duration;
-  final bool locationAllowed;
+  final String locationLabel;
   final List<_PaymentMethod> methods;
   final int selectedMethodIndex;
   final ValueChanged<int> onPaymentSelected;
@@ -437,10 +541,7 @@ class _PaymentStep extends StatelessWidget {
             children: [
               _SummaryRow(label: 'المركبة', value: vehicle.plateNumber),
               _SummaryRow(label: 'الموديل', value: vehicle.model),
-              _SummaryRow(
-                label: 'الموقع',
-                value: locationAllowed ? 'الموقع الحالي' : 'رمز QR',
-              ),
+              _SummaryRow(label: 'الموقع', value: locationLabel),
               _SummaryRow(label: 'المدة', value: duration.label),
               _SummaryRow(label: 'المبلغ', value: '${duration.price} شيكل'),
             ],
@@ -497,12 +598,10 @@ class _VehicleChoiceCard extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.92),
+          color: Colors.white.withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF0F766E)
-                : const Color(0xFFE7E1D6),
+            color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFE7E1D6),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -540,10 +639,7 @@ class _VehicleChoiceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF2EEE5),
                       borderRadius: BorderRadius.circular(999),
@@ -564,9 +660,7 @@ class _VehicleChoiceCard extends StatelessWidget {
               isSelected
                   ? Icons.radio_button_checked_rounded
                   : Icons.radio_button_off_rounded,
-              color: isSelected
-                  ? const Color(0xFF0F766E)
-                  : const Color(0xFFB8B2A7),
+              color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFB8B2A7),
             ),
           ],
         ),
@@ -598,12 +692,10 @@ class _ChoiceTile extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
+          color: Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected
-                ? const Color(0xFF0F766E)
-                : const Color(0xFFE7E1D6),
+            color: selected ? const Color(0xFF0F766E) : const Color(0xFFE7E1D6),
             width: selected ? 2 : 1,
           ),
         ),
@@ -635,9 +727,7 @@ class _ChoiceTile extends StatelessWidget {
               selected
                   ? Icons.radio_button_checked_rounded
                   : Icons.radio_button_off_rounded,
-              color: selected
-                  ? const Color(0xFF0F766E)
-                  : const Color(0xFFB8B2A7),
+              color: selected ? const Color(0xFF0F766E) : const Color(0xFFB8B2A7),
             ),
           ],
         ),
@@ -654,6 +744,7 @@ class _FlowMiniProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const labels = ['مركبة', 'موقع', 'مدة', 'دفع'];
+
     return Row(
       children: List.generate(labels.length * 2 - 1, (index) {
         if (index.isOdd) {
@@ -663,9 +754,7 @@ class _FlowMiniProgress extends StatelessWidget {
             child: Container(
               height: 1.5,
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              color: isDone
-                  ? const Color(0xFF0F766E)
-                  : const Color(0xFFD8D2C7),
+              color: isDone ? const Color(0xFF0F766E) : const Color(0xFFD8D2C7),
             ),
           );
         }
@@ -688,11 +777,7 @@ class _FlowMiniProgress extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: isDone
-                  ? const Icon(
-                      Icons.check_rounded,
-                      size: 16,
-                      color: Colors.white,
-                    )
+                  ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
                   : Text(
                       '${stepIndex + 1}',
                       style: TextStyle(
@@ -709,11 +794,8 @@ class _FlowMiniProgress extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontSize: 10,
-                      color: isActive
-                          ? const Color(0xFF0F766E)
-                          : const Color(0xFF8A8F98),
-                      fontWeight:
-                          isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive ? const Color(0xFF0F766E) : const Color(0xFF8A8F98),
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                     ),
               ),
             ),
@@ -734,7 +816,7 @@ class _WhiteCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(24),
       ),
       child: child,
@@ -787,11 +869,14 @@ class _SummaryRow extends StatelessWidget {
                 ),
           ),
           const Spacer(),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
           ),
         ],
       ),
@@ -821,17 +906,32 @@ class _DurationOption {
   final int price;
 
   String get label {
+    if (secondaryLabel == null) {
+      return primaryLabel;
+    }
+    return '$primaryLabel ${secondaryLabel!}';
+  }
+
+  String get primaryLabel {
     if (minutes < 60) {
       return '$minutes دقيقة';
     }
 
     final hours = minutes ~/ 60;
-    final extraMinutes = minutes % 60;
-    if (extraMinutes == 0) {
-      return hours == 1 ? 'ساعة واحدة' : '$hours ساعات';
+    return hours == 1 ? 'ساعة' : '$hours ساعات';
+  }
+
+  String? get secondaryLabel {
+    if (minutes < 60) {
+      return null;
     }
 
-    return '$hours ساعة و $extraMinutes دقيقة';
+    final extraMinutes = minutes % 60;
+    if (extraMinutes == 0) {
+      return null;
+    }
+
+    return 'و $extraMinutes دقيقة';
   }
 }
 

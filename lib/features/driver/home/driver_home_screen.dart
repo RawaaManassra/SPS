@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/driver/parking/driver_parking_session.dart';
+
 class DriverHomeScreen extends StatelessWidget {
   const DriverHomeScreen({
     super.key,
-    required this.hasActiveSession,
+    required this.activeSession,
     required this.onStartSession,
     required this.onEndSession,
+    required this.onExtendSession,
     required this.onOpenViolations,
   });
 
-  final bool hasActiveSession;
+  final DriverParkingSession? activeSession;
   final VoidCallback onStartSession;
   final VoidCallback onEndSession;
+  final VoidCallback onExtendSession;
   final VoidCallback onOpenViolations;
 
   @override
@@ -85,8 +89,12 @@ class DriverHomeScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        if (hasActiveSession)
-          ActiveSessionCard(onEndSession: onEndSession)
+        if (activeSession != null)
+          ActiveSessionCard(
+            session: activeSession!,
+            onEndSession: onEndSession,
+            onExtendSession: onExtendSession,
+          )
         else
           EmptySessionCard(onStartSession: onStartSession),
         const SizedBox(height: 18),
@@ -115,9 +123,7 @@ class HomeViolationsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFFF6E8),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: const Color(0xFFF0D39B),
-        ),
+        border: Border.all(color: const Color(0xFFF0D39B)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -267,14 +273,20 @@ class EmptySessionCard extends StatelessWidget {
 class ActiveSessionCard extends StatelessWidget {
   const ActiveSessionCard({
     super.key,
+    required this.session,
     required this.onEndSession,
+    required this.onExtendSession,
   });
 
+  final DriverParkingSession session;
   final VoidCallback onEndSession;
+  final VoidCallback onExtendSession;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final remainingMinutes = session.remainingMinutes;
+    final progress = (remainingMinutes / session.durationMinutes).clamp(0.0, 1.0);
 
     return SectionCard(
       title: 'جلسة وقوف نشطة',
@@ -283,16 +295,16 @@ class ActiveSessionCard extends StatelessWidget {
         children: [
           Center(
             child: SizedBox(
-              width: 170,
-              height: 170,
+              width: 182,
+              height: 182,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   SizedBox(
-                    width: 160,
-                    height: 160,
+                    width: 168,
+                    height: 168,
                     child: CircularProgressIndicator(
-                      value: 0.67,
+                      value: progress.toDouble(),
                       strokeWidth: 12,
                       backgroundColor: const Color(0xFFE7E1D6),
                       color: const Color(0xFF0F766E),
@@ -303,7 +315,7 @@ class ActiveSessionCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '20',
+                        '$remainingMinutes',
                         style: theme.textTheme.displaySmall?.copyWith(
                           fontWeight: FontWeight.w900,
                           color: const Color(0xFF0F766E),
@@ -323,27 +335,37 @@ class ActiveSessionCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const SessionDetailRow(
+          SessionDetailRow(
             icon: Icons.directions_car_outlined,
             label: 'المركبة',
-            value: '24-381-15',
+            value: session.vehiclePlateNumber,
           ),
-          const SessionDetailRow(
+          SessionDetailRow(
             icon: Icons.place_outlined,
             label: 'الموقع',
-            value: 'الموقع الحالي',
+            value: session.locationLabel,
           ),
-          const SessionDetailRow(
+          SessionDetailRow(
             icon: Icons.payments_outlined,
             label: 'الدفع',
-            value: 'المحفظة',
+            value: session.paymentMethodLabel,
+          ),
+          SessionDetailRow(
+            icon: Icons.schedule_outlined,
+            label: 'الانتهاء',
+            value: _formatTime(session.endsAt),
+          ),
+          SessionDetailRow(
+            icon: Icons.receipt_long_outlined,
+            label: 'المبلغ',
+            value: '${session.totalPrice} شيكل',
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: onExtendSession,
                   child: const Text('تمديد الوقت'),
                 ),
               ),
@@ -366,6 +388,13 @@ class ActiveSessionCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final suffix = dateTime.hour >= 12 ? 'م' : 'ص';
+    return '$hour:$minute $suffix';
   }
 }
 
@@ -396,11 +425,14 @@ class SessionDetailRow extends StatelessWidget {
                 ),
           ),
           const Spacer(),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
           ),
         ],
       ),

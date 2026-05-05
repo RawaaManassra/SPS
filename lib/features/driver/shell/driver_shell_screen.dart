@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flut/features/driver/history/driver_history_screen.dart';
 import 'package:flut/features/driver/home/driver_home_screen.dart';
 import 'package:flut/features/driver/map/driver_map_screen.dart';
+import 'package:flut/features/driver/notifications/driver_notifications_screen.dart';
+import 'package:flut/features/driver/parking/driver_parking_session.dart';
+import 'package:flut/features/driver/parking/extend_parking_screen.dart';
 import 'package:flut/features/driver/parking/start_parking_screen.dart';
 import 'package:flut/features/driver/profile/driver_profile_screen.dart';
 import 'package:flut/features/driver/vehicles/driver_vehicles_screen.dart';
@@ -17,7 +20,7 @@ class DriverShellScreen extends StatefulWidget {
 
 class _DriverShellScreenState extends State<DriverShellScreen> {
   int _currentIndex = 0;
-  bool _hasActiveSession = false;
+  DriverParkingSession? _activeSession;
 
   static const _titles = [
     'الرئيسية',
@@ -35,7 +38,7 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
         actions: _currentIndex == 0
             ? [
                 IconButton(
-                  onPressed: () {},
+                  onPressed: _openNotifications,
                   icon: const Icon(Icons.notifications_none_rounded),
                 ),
               ]
@@ -45,13 +48,10 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
         index: _currentIndex,
         children: [
           DriverHomeScreen(
-            hasActiveSession: _hasActiveSession,
+            activeSession: _activeSession,
             onStartSession: _openStartParkingFlow,
-            onEndSession: () {
-              setState(() {
-                _hasActiveSession = false;
-              });
-            },
+            onEndSession: _confirmEndSession,
+            onExtendSession: _openExtendSessionFlow,
             onOpenViolations: _openViolations,
           ),
           const DriverMapScreen(),
@@ -104,18 +104,98 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
   }
 
   Future<void> _openStartParkingFlow() async {
-    final started = await Navigator.push<bool>(
+    final session = await Navigator.push<DriverParkingSession>(
       context,
       MaterialPageRoute(
         builder: (_) => const StartParkingScreen(),
       ),
     );
 
-    if (started == true) {
+    if (session != null) {
       setState(() {
-        _hasActiveSession = true;
+        _activeSession = session;
         _currentIndex = 0;
       });
+    }
+  }
+
+  Future<void> _openExtendSessionFlow() async {
+    if (_activeSession == null) {
+      return;
+    }
+
+    final extendResult = await Navigator.of(context).push<ExtendParkingResult>(
+      MaterialPageRoute(
+        builder: (_) => const ExtendParkingScreen(),
+      ),
+    );
+
+    if (extendResult == null || _activeSession == null) {
+      return;
+    }
+
+    final addedPrice = extendResult.extraMinutes ~/ 30;
+    setState(() {
+      _activeSession = _activeSession!.copyWith(
+        durationMinutes: _activeSession!.durationMinutes + extendResult.extraMinutes,
+        totalPrice: _activeSession!.totalPrice + addedPrice,
+        paymentMethodLabel: extendResult.paymentMethodTitle,
+        endsAt: _activeSession!.endsAt.add(Duration(minutes: extendResult.extraMinutes)),
+      );
+    });
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'تم تمديد الجلسة ${extendResult.extraMinutes} دقيقة عبر ${extendResult.paymentMethodTitle}.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmEndSession() async {
+    if (_activeSession == null) {
+      return;
+    }
+
+    final shouldEnd = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('إنهاء الجلسة'),
+          content: const Text('هل تريد إنهاء جلسة الوقوف الحالية الآن؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('إلغاء'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('إنهاء'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldEnd == true) {
+      setState(() {
+        _activeSession = null;
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إنهاء الجلسة الحالية.'),
+        ),
+      );
     }
   }
 
@@ -123,6 +203,14 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const DriverViolationsScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const DriverNotificationsScreen(),
       ),
     );
   }
