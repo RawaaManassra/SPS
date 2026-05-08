@@ -10,6 +10,7 @@ class DriverHomeScreen extends StatelessWidget {
     required this.onEndSession,
     required this.onExtendSession,
     required this.onOpenViolations,
+    required this.onOpenWallet,
   });
 
   final DriverParkingSession? activeSession;
@@ -17,6 +18,7 @@ class DriverHomeScreen extends StatelessWidget {
   final VoidCallback onEndSession;
   final VoidCallback onExtendSession;
   final VoidCallback onOpenViolations;
+  final VoidCallback onOpenWallet;
 
   @override
   Widget build(BuildContext context) {
@@ -54,35 +56,39 @@ class DriverHomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.account_balance_wallet_outlined,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'رصيد المحفظة',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
+              InkWell(
+                onTap: onOpenWallet,
+                borderRadius: BorderRadius.circular(20),
+                child: Ink(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.account_balance_wallet_outlined,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'رصيد المحفظة',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      '42.00 شيكل',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                      Text(
+                        '42.00 شيكل',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

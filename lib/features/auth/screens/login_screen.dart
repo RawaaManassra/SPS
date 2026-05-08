@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/auth/services/auth_service.dart';
 import 'package:flut/features/driver/shell/driver_shell_screen.dart';
 
 import 'forgot_password_screen.dart';
@@ -21,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _idController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
 
   bool _didShowSuccessMessage = false;
   bool _isSubmitting = false;
@@ -252,13 +254,43 @@ class _LoginScreenState extends State<LoginScreen> {
       _isSubmitting = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+    try {
+      await _authService.login(
+        nationalId: _idController.text.trim(),
+        password: _passwordController.text,
+      );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+        ),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تعذر الوصول إلى الخادم. تأكدي أن الـ backend شغال ثم حاولي مرة أخرى.',
+          ),
+        ),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
 
     if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
+        // OfficerShellScreen
         builder: (_) => const DriverShellScreen(),
       ),
     );

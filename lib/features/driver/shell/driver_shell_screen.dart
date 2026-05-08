@@ -10,6 +10,7 @@ import 'package:flut/features/driver/parking/start_parking_screen.dart';
 import 'package:flut/features/driver/profile/driver_profile_screen.dart';
 import 'package:flut/features/driver/vehicles/driver_vehicles_screen.dart';
 import 'package:flut/features/driver/violations/driver_violations_screen.dart';
+import 'package:flut/features/driver/wallet/driver_wallet_screen.dart';
 
 class DriverShellScreen extends StatefulWidget {
   const DriverShellScreen({super.key});
@@ -53,6 +54,7 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
             onEndSession: _confirmEndSession,
             onExtendSession: _openExtendSessionFlow,
             onOpenViolations: _openViolations,
+            onOpenWallet: _openWallet,
           ),
           const DriverMapScreen(),
           const DriverHistoryScreen(),
@@ -211,6 +213,14 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const DriverNotificationsScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openWallet() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const DriverWalletScreen(),
       ),
     );
   }
