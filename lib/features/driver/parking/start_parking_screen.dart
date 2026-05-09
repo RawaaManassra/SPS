@@ -23,11 +23,13 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
     const _VehicleItem(
       plateNumber: '24-381-15',
       model: 'Hyundai i20',
+      color: 'أبيض',
       tag: 'المركبة الأساسية',
     ),
     const _VehicleItem(
       plateNumber: '31-662-08',
       model: 'Kia Picanto',
+      color: 'فضي',
       tag: 'مركبة مضافة',
     ),
   ];
@@ -229,7 +231,8 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
       _vehicles.add(
         _VehicleItem(
           plateNumber: result.plateNumber,
-          model: result.model,
+          model: result.vehicleType,
+          color: result.color,
           tag: 'مركبة مضافة',
         ),
       );
@@ -540,7 +543,8 @@ class _PaymentStep extends StatelessWidget {
           child: Column(
             children: [
               _SummaryRow(label: 'المركبة', value: vehicle.plateNumber),
-              _SummaryRow(label: 'الموديل', value: vehicle.model),
+              _SummaryRow(label: 'النوع', value: vehicle.model),
+              _SummaryRow(label: 'اللون', value: vehicle.color),
               _SummaryRow(label: 'الموقع', value: locationLabel),
               _SummaryRow(label: 'المدة', value: duration.label),
               _SummaryRow(label: 'المبلغ', value: '${duration.price} شيكل'),
@@ -632,7 +636,7 @@ class _VehicleChoiceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    vehicle.model,
+                    '${vehicle.model} • ${vehicle.color}',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFF5B6472),
                     ),
@@ -888,11 +892,13 @@ class _VehicleItem {
   const _VehicleItem({
     required this.plateNumber,
     required this.model,
+    required this.color,
     required this.tag,
   });
 
   final String plateNumber;
   final String model;
+  final String color;
   final String tag;
 }
 

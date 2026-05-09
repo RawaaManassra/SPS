@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/auth/models/register_request.dart';
+import 'package:flut/features/auth/services/auth_service.dart';
+import 'package:flut/features/driver/vehicles/vehicle_catalog.dart';
+import 'package:flut/features/driver/vehicles/services/vehicle_service.dart';
+
 import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -10,45 +15,47 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  int _currentStep = 0;
-  bool _identityImageSelected = false;
-  bool _isSubmitting = false;
+  final _authService = AuthService();
+  final _vehicleService = VehicleService();
 
   final _personalFormKey = GlobalKey<FormState>();
   final _vehiclesFormKey = GlobalKey<FormState>();
   final _identityFormKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
-  final _idController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _identityIdController = TextEditingController();
+  final _nationalIdController = TextEditingController();
+  final _drivingLicenceController = TextEditingController();
 
   final List<_VehicleFormData> _vehicles = [_VehicleFormData()];
+
+  int _currentStep = 0;
+  bool _isSubmitting = false;
 
   static const _stepTitles = [
     'المعلومات الشخصية',
     'معلومات السيارة',
-    'التحقق من الهوية',
+    'الهوية ورخصة القيادة',
   ];
 
   static const _stepSubtitles = [
-    'أدخل بياناتك الأساسية لإنشاء الحساب.',
-    'أدخل رقم اللوحة وموديل السيارة.',
-    'أدخل رقم الهوية وأضف صورة الهوية.',
+    'أدخلي بياناتك الأساسية لإنشاء الحساب.',
+    'أدخلي بيانات المركبة كما يطلبها النظام.',
+    'أدخلي رقم الهوية الشخصية ورقم رخصة القيادة لإكمال التسجيل.',
   ];
 
   @override
   void dispose() {
     _nameController.dispose();
-    _idController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _identityIdController.dispose();
+    _nationalIdController.dispose();
+    _drivingLicenceController.dispose();
     for (final vehicle in _vehicles) {
       vehicle.dispose();
     }
@@ -183,14 +190,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 14),
                 _SignupField(
-                  controller: _idController,
-                  label: 'رقم الهوية',
-                  icon: Icons.badge_outlined,
-                  keyboardType: TextInputType.number,
-                  validator: _identityValidator,
-                ),
-                const SizedBox(height: 14),
-                _SignupField(
                   controller: _phoneController,
                   label: 'رقم الجوال',
                   icon: Icons.phone_iphone_rounded,
@@ -232,7 +231,7 @@ class _SignupScreenState extends State<SignupScreen> {
             children: [
               for (var index = 0; index < _vehicles.length; index++) ...[
                 _SectionShell(
-                  title: 'السيارة ${index + 1}',
+                  title: 'المركبة ${index + 1}',
                   trailing: _vehicles.length > 1
                       ? IconButton(
                           onPressed: () => _removeVehicle(index),
@@ -261,33 +260,33 @@ class _SignupScreenState extends State<SignupScreen> {
         );
       default:
         return _SectionShell(
-          title: 'التحقق من الهوية',
+          title: 'الهوية ورخصة القيادة',
           child: Form(
             key: _identityFormKey,
             child: Column(
               children: [
                 _SignupField(
-                  controller: _identityIdController,
-                  label: 'رقم الهوية',
+                  controller: _nationalIdController,
+                  label: 'رقم الهوية الشخصية',
                   icon: Icons.badge_outlined,
                   keyboardType: TextInputType.number,
                   validator: _identityValidator,
                 ),
                 const SizedBox(height: 14),
-                _UploadHintCard(
-                  title: 'صورة الهوية *',
-                  subtitle: _identityImageSelected
-                      ? 'تم اختيار صورة الهوية.'
-                      : 'أضف صورة واضحة للهوية لاستخدامها في التحقق من الحساب.',
-                  buttonLabel:
-                      _identityImageSelected ? 'تغيير الصورة' : 'اختيار صورة',
-                  icon: Icons.upload_file_rounded,
-                  selected: _identityImageSelected,
-                  onPressed: () {
-                    setState(() {
-                      _identityImageSelected = true;
-                    });
-                  },
+                _SignupField(
+                  controller: _drivingLicenceController,
+                  label: 'رقم رخصة القيادة',
+                  icon: Icons.credit_card_outlined,
+                  keyboardType: TextInputType.number,
+                  validator: _identityValidator,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'هذه الخطوة تطابق متطلبات الباك الحالية. لا يوجد حالياً رفع فعلي لصورة الهوية.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF5B6472),
+                        height: 1.5,
+                      ),
                 ),
               ],
             ),
@@ -314,7 +313,73 @@ class _SignupScreenState extends State<SignupScreen> {
       _isSubmitting = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+    final nationalId = _nationalIdController.text.trim();
+    final password = _passwordController.text.trim();
+
+    try {
+      await _authService.register(
+        RegisterRequest(
+          username: nationalId,
+          fullName: _nameController.text.trim(),
+          nationalId: nationalId,
+          drivingLicenceId: _drivingLicenceController.text.trim(),
+          phoneNumber: _phoneController.text.trim(),
+          email: _emailController.text.trim().isEmpty
+              ? null
+              : _emailController.text.trim(),
+          password: password,
+          confirmPassword: _confirmPasswordController.text.trim(),
+        ),
+      );
+
+      await _authService.login(
+        nationalId: nationalId,
+        password: password,
+      );
+
+      for (var index = 0; index < _vehicles.length; index++) {
+        final vehicle = _vehicles[index];
+        await _vehicleService.addVehicle(
+          licensePlate: vehicle.plateController.text.trim(),
+          vehicleType: vehicle.typeController.text.trim(),
+          color: vehicle.colorController.text.trim(),
+          isDefault: index == 0,
+        );
+      }
+
+      await _authService.clearSession();
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    } on VehicleException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تعذر إكمال التسجيل حالياً. تأكدي أن الـ backend شغال ثم حاولي مرة أخرى.',
+          ),
+        ),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
 
     if (!mounted) return;
 
@@ -322,7 +387,7 @@ class _SignupScreenState extends State<SignupScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => const LoginScreen(
-          successMessage: 'تم إنشاء الحساب بنجاح. يمكنك تسجيل الدخول الآن.',
+          successMessage: 'تم إنشاء الحساب والمركبات بنجاح. يمكنك تسجيل الدخول الآن.',
         ),
       ),
       (route) => false,
@@ -338,15 +403,7 @@ class _SignupScreenState extends State<SignupScreen> {
       return _vehiclesFormKey.currentState?.validate() ?? false;
     }
 
-    final isFormValid = _identityFormKey.currentState?.validate() ?? false;
-    if (!_identityImageSelected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار صورة الهوية.')),
-      );
-      return false;
-    }
-
-    return isFormValid;
+    return _identityFormKey.currentState?.validate() ?? false;
   }
 
   String? _optionalEmailValidator(String? value) {
@@ -356,7 +413,7 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     if (!email.contains('@') || !email.contains('.')) {
-      return 'أدخل بريد إلكتروني صحيح أو اترك الحقل فارغاً';
+      return 'أدخلي بريداً إلكترونياً صحيحاً أو اتركي الحقل فارغاً';
     }
 
     return null;
@@ -369,7 +426,7 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     if (text.length < 6) {
-      return 'أدخل رقم هوية صحيح';
+      return 'أدخلي رقماً صحيحاً';
     }
 
     return null;
@@ -382,7 +439,7 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     if (text.length < 9) {
-      return 'أدخل رقم جوال صحيح';
+      return 'أدخلي رقم جوال صحيح';
     }
 
     return null;
@@ -599,11 +656,28 @@ class _VehicleFields extends StatelessWidget {
           validator: _plateValidator,
         ),
         const SizedBox(height: 14),
-        _SignupField(
-          controller: data.modelController,
-          label: 'موديل السيارة',
-          icon: Icons.directions_car_filled_outlined,
-          validator: _modelValidator,
+        TextFormField(
+          controller: data.typeController,
+          readOnly: true,
+          validator: _requiredValidator,
+          onTap: () => _showVehicleTypePicker(context, data),
+          decoration: const InputDecoration(
+            labelText: 'نوع السيارة',
+            prefixIcon: Icon(Icons.directions_car_filled_outlined),
+            suffixIcon: Icon(Icons.keyboard_arrow_down_rounded),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextFormField(
+          controller: data.colorController,
+          readOnly: true,
+          validator: _requiredValidator,
+          onTap: () => _showVehicleColorPicker(context, data),
+          decoration: const InputDecoration(
+            labelText: 'لون السيارة',
+            prefixIcon: Icon(Icons.palette_outlined),
+            suffixIcon: Icon(Icons.keyboard_arrow_down_rounded),
+          ),
         ),
       ],
     );
@@ -616,13 +690,13 @@ class _VehicleFields extends StatelessWidget {
     }
 
     if (text.length < 4) {
-      return 'أدخل رقم لوحة صحيح';
+      return 'أدخلي رقم لوحة صحيح';
     }
 
     return null;
   }
 
-  String? _modelValidator(String? value) {
+  String? _requiredValidator(String? value) {
     final text = (value ?? '').trim();
     if (text.isEmpty) {
       return 'هذا الحقل مطلوب';
@@ -630,78 +704,54 @@ class _VehicleFields extends StatelessWidget {
 
     return null;
   }
-}
 
-class _UploadHintCard extends StatelessWidget {
-  const _UploadHintCard({
-    required this.title,
-    required this.subtitle,
-    required this.buttonLabel,
-    required this.icon,
-    required this.onPressed,
-    this.selected = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final String buttonLabel;
-  final IconData icon;
-  final VoidCallback onPressed;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: selected ? const Color(0xFFE7F2EF) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: selected ? const Color(0xFF0F766E) : const Color(0xFFD8E1E7),
-        ),
+  Future<void> _showVehicleTypePicker(
+    BuildContext context,
+    _VehicleFormData data,
+  ) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: const Color(0xFF0F766E)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF5B6472),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: onPressed,
-            child: Text(buttonLabel),
-          ),
-        ],
-      ),
+      builder: (context) {
+        return _SearchSelectionSheet(
+          title: 'اختيار نوع السيارة',
+          items: vehicleTypeOptions,
+          initialValue: data.typeController.text.trim(),
+        );
+      },
     );
+
+    if (selected != null) {
+      data.typeController.text = selected;
+    }
+  }
+
+  Future<void> _showVehicleColorPicker(
+    BuildContext context,
+    _VehicleFormData data,
+  ) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return _SimpleSelectionSheet(
+          title: 'اختيار لون السيارة',
+          items: vehicleColorOptions,
+          initialValue: data.colorController.text.trim(),
+        );
+      },
+    );
+
+    if (selected != null) {
+      data.colorController.text = selected;
+    }
   }
 }
 
@@ -750,13 +800,196 @@ class _SignupField extends StatelessWidget {
 }
 
 class _VehicleFormData {
-  _VehicleFormData();
-
   final plateController = TextEditingController();
-  final modelController = TextEditingController();
+  final typeController = TextEditingController();
+  final colorController = TextEditingController();
 
   void dispose() {
     plateController.dispose();
-    modelController.dispose();
+    typeController.dispose();
+    colorController.dispose();
+  }
+}
+
+class _SearchSelectionSheet extends StatefulWidget {
+  const _SearchSelectionSheet({
+    required this.title,
+    required this.items,
+    required this.initialValue,
+  });
+
+  final String title;
+  final List<String> items;
+  final String initialValue;
+
+  @override
+  State<_SearchSelectionSheet> createState() => _SearchSelectionSheetState();
+}
+
+class _SearchSelectionSheetState extends State<_SearchSelectionSheet> {
+  late final TextEditingController _searchController;
+  late List<String> _filteredItems;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _filteredItems = widget.items;
+    _searchController.addListener(_applyFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_applyFilter)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      _filteredItems = widget.items
+          .where((item) => item.toLowerCase().contains(query))
+          .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 24 + bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 46,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD8D2C7),
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+            Text(
+              widget.title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                hintText: 'ابحثي عن نوع السيارة',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _filteredItems.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final item = _filteredItems[index];
+                  final isSelected = item == widget.initialValue;
+                  return ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    tileColor: Colors.white,
+                    leading: Icon(
+                      isSelected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      color: isSelected
+                          ? const Color(0xFF0F766E)
+                          : const Color(0xFFB8B2A7),
+                    ),
+                    title: Text(item),
+                    onTap: () => Navigator.of(context).pop(item),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SimpleSelectionSheet extends StatelessWidget {
+  const _SimpleSelectionSheet({
+    required this.title,
+    required this.items,
+    required this.initialValue,
+  });
+
+  final String title;
+  final List<String> items;
+  final String initialValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 46,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD8D2C7),
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 14),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: items.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  final isSelected = item == initialValue;
+                  return ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    tileColor: Colors.white,
+                    leading: Icon(
+                      isSelected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      color: isSelected
+                          ? const Color(0xFF0F766E)
+                          : const Color(0xFFB8B2A7),
+                    ),
+                    title: Text(item),
+                    onTap: () => Navigator.of(context).pop(item),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

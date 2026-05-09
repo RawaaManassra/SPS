@@ -20,4 +20,20 @@ class ApiClient {
       encoding: utf8,
     );
   }
+
+  Future<http.Response> postJson(
+    String url, {
+    required Map<String, dynamic> body,
+    Map<String, String>? headers,
+  }) {
+    return http.post(
+      Uri.parse(url),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        ...?headers,
+      },
+      body: jsonEncode(body),
+      encoding: utf8,
+    );
+  }
 }

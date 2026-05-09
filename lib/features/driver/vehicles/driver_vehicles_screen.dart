@@ -13,12 +13,14 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
   final List<_VehicleItem> _vehicles = [
     const _VehicleItem(
       plateNumber: '24-381-15',
-      model: 'Hyundai i20',
+      vehicleType: 'Hyundai i20',
+      color: 'أبيض',
       isPrimary: true,
     ),
     const _VehicleItem(
       plateNumber: '31-662-08',
-      model: 'Kia Picanto',
+      vehicleType: 'Kia Picanto',
+      color: 'فضي',
     ),
   ];
 
@@ -27,7 +29,8 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
       MaterialPageRoute(
         builder: (_) => DriverVehicleFormScreen(
           initialPlateNumber: vehicle?.plateNumber,
-          initialModel: vehicle?.model,
+          initialVehicleType: vehicle?.vehicleType,
+          initialColor: vehicle?.color,
           title: vehicle == null ? 'إضافة مركبة جديدة' : 'تعديل بيانات المركبة',
           actionLabel: vehicle == null ? 'إضافة المركبة' : 'حفظ التعديلات',
         ),
@@ -43,7 +46,8 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
         _vehicles.add(
           _VehicleItem(
             plateNumber: result.plateNumber,
-            model: result.model,
+            vehicleType: result.vehicleType,
+            color: result.color,
             isPrimary: _vehicles.isEmpty,
           ),
         );
@@ -51,7 +55,8 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
         final current = _vehicles[index];
         _vehicles[index] = _VehicleItem(
           plateNumber: result.plateNumber,
-          model: result.model,
+          vehicleType: result.vehicleType,
+          color: result.color,
           isPrimary: current.isPrimary,
         );
       }
@@ -133,7 +138,8 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
       for (var i = 0; i < _vehicles.length; i++) {
         _vehicles[i] = _VehicleItem(
           plateNumber: _vehicles[i].plateNumber,
-          model: _vehicles[i].model,
+          vehicleType: _vehicles[i].vehicleType,
+          color: _vehicles[i].color,
           isPrimary: i == selectedIndex,
         );
       }
@@ -176,7 +182,8 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
       if (wasPrimary && _vehicles.isNotEmpty) {
         _vehicles[0] = _VehicleItem(
           plateNumber: _vehicles[0].plateNumber,
-          model: _vehicles[0].model,
+          vehicleType: _vehicles[0].vehicleType,
+          color: _vehicles[0].color,
           isPrimary: true,
         );
       }
@@ -230,10 +237,12 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
             final vehicle = _vehicles[index];
 
             return Padding(
-              padding: EdgeInsets.only(bottom: index == _vehicles.length - 1 ? 0 : 12),
+              padding:
+                  EdgeInsets.only(bottom: index == _vehicles.length - 1 ? 0 : 12),
               child: VehicleListCard(
                 plateNumber: vehicle.plateNumber,
-                model: vehicle.model,
+                vehicleType: vehicle.vehicleType,
+                color: vehicle.color,
                 status: vehicle.isPrimary ? 'المركبة الأساسية' : 'مركبة مضافة',
                 onMorePressed: () => _showVehicleActions(index),
               ),
@@ -248,13 +257,15 @@ class VehicleListCard extends StatelessWidget {
   const VehicleListCard({
     super.key,
     required this.plateNumber,
-    required this.model,
+    required this.vehicleType,
+    required this.color,
     required this.status,
     required this.onMorePressed,
   });
 
   final String plateNumber;
-  final String model;
+  final String vehicleType;
+  final String color;
   final String status;
   final VoidCallback onMorePressed;
 
@@ -295,7 +306,7 @@ class VehicleListCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  model,
+                  '$vehicleType • $color',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFF5B6472),
                   ),
@@ -405,11 +416,13 @@ class _EmptyVehiclesState extends StatelessWidget {
 class _VehicleItem {
   const _VehicleItem({
     required this.plateNumber,
-    required this.model,
+    required this.vehicleType,
+    required this.color,
     this.isPrimary = false,
   });
 
   final String plateNumber;
-  final String model;
+  final String vehicleType;
+  final String color;
   final bool isPrimary;
 }
