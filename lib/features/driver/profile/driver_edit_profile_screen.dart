@@ -5,23 +5,22 @@ import 'driver_profile_form_result.dart';
 class DriverEditProfileScreen extends StatefulWidget {
   const DriverEditProfileScreen({
     super.key,
-    required this.initialName,
+    required this.initialFullName,
     required this.initialPhoneNumber,
     required this.initialEmail,
   });
 
-  final String initialName;
+  final String initialFullName;
   final String initialPhoneNumber;
   final String initialEmail;
 
   @override
-  State<DriverEditProfileScreen> createState() =>
-      _DriverEditProfileScreenState();
+  State<DriverEditProfileScreen> createState() => _DriverEditProfileScreenState();
 }
 
 class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController;
+  late final TextEditingController _fullNameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
 
@@ -30,14 +29,14 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialName);
+    _fullNameController = TextEditingController(text: widget.initialFullName);
     _phoneController = TextEditingController(text: widget.initialPhoneNumber);
     _emailController = TextEditingController(text: widget.initialEmail);
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _fullNameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -57,7 +56,7 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.92),
+              color: Colors.white.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(28),
             ),
             child: Form(
@@ -66,14 +65,14 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'حدّث بياناتك الأساسية التي ستظهر داخل الحساب.',
+                    'حدّث الاسم الكامل وبيانات التواصل كما هي محفوظة في الباك.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFF5B6472),
                     ),
                   ),
                   const SizedBox(height: 18),
                   TextFormField(
-                    controller: _nameController,
+                    controller: _fullNameController,
                     validator: _requiredValidator,
                     decoration: const InputDecoration(
                       labelText: 'الاسم الكامل',
@@ -132,14 +131,14 @@ class _DriverEditProfileScreenState extends State<DriverEditProfileScreen> {
       _isSaving = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+    await Future<void>.delayed(const Duration(milliseconds: 250));
 
     if (!mounted) return;
 
     Navigator.pop(
       context,
       DriverProfileFormResult(
-        name: _nameController.text.trim(),
+        fullName: _fullNameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
         email: _emailController.text.trim(),
       ),

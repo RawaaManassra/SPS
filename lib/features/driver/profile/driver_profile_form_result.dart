@@ -1,11 +1,11 @@
 class DriverProfileFormResult {
   const DriverProfileFormResult({
-    required this.name,
+    required this.fullName,
     required this.phoneNumber,
     required this.email,
   });
 
-  final String name;
+  final String fullName;
   final String phoneNumber;
   final String email;
 }

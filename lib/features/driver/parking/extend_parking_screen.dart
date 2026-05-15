@@ -10,30 +10,11 @@ class ExtendParkingScreen extends StatefulWidget {
 class _ExtendParkingScreenState extends State<ExtendParkingScreen> {
   int _currentStep = 0;
   int _selectedExtraMinutes = 30;
-  int _selectedPaymentIndex = 0;
   bool _isSubmitting = false;
-
-  static const _paymentMethods = [
-    _ExtendPaymentMethod(
-      title: 'المحفظة',
-      subtitle: 'الخصم من الرصيد المتاح',
-      icon: Icons.account_balance_wallet_outlined,
-    ),
-    _ExtendPaymentMethod(
-      title: 'بطاقة بنكية',
-      subtitle: 'Visa / Mastercard',
-      icon: Icons.credit_card_rounded,
-    ),
-    _ExtendPaymentMethod(
-      title: 'Google Pay',
-      subtitle: 'الدفع السريع من الهاتف',
-      icon: Icons.phone_android_rounded,
-    ),
-  ];
 
   static const _stepTitles = [
     'اختيار مدة التمديد',
-    'الدفع والتأكيد',
+    'التأكيد والدفع',
   ];
 
   @override
@@ -78,14 +59,14 @@ class _ExtendParkingScreenState extends State<ExtendParkingScreen> {
               const SizedBox(height: 8),
               Text(
                 _currentStep == 0
-                    ? 'اختر الوقت الذي تريد إضافته إلى الجلسة الحالية.'
-                    : 'راجع قيمة الإضافة واختر طريقة الدفع قبل التأكيد.',
+                    ? 'اختري الوقت الذي تريدين إضافته إلى الجلسة الحالية.'
+                    : 'سيتم خصم قيمة التمديد من المحفظة مباشرة عند التأكيد.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF55606E),
                 ),
               ),
               const SizedBox(height: 18),
-              _currentStep == 0 ? _buildDurationStep() : _buildPaymentStep(),
+              _currentStep == 0 ? _buildDurationStep() : _buildConfirmationStep(),
               const SizedBox(height: 18),
               ElevatedButton(
                 onPressed: _isSubmitting ? null : _goNext,
@@ -95,7 +76,7 @@ class _ExtendParkingScreenState extends State<ExtendParkingScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2.2),
                       )
-                    : Text(_currentStep == 1 ? 'تأكيد الدفع والتمديد' : 'متابعة'),
+                    : Text(_currentStep == 1 ? 'تأكيد التمديد' : 'متابعة'),
               ),
               const SizedBox(height: 12),
               OutlinedButton(
@@ -225,14 +206,14 @@ class _ExtendParkingScreenState extends State<ExtendParkingScreen> {
           ),
           const SizedBox(height: 14),
           const _InfoBox(
-            text: 'يمكنك زيادة وقت التمديد بنصف ساعة كل مرة حسب حاجتك.',
+            text: 'التمديد الحقيقي في الباك يتم من خلال خصم المبلغ من المحفظة فقط.',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPaymentStep() {
+  Widget _buildConfirmationStep() {
     final addedPrice = _selectedExtraMinutes ~/ 30;
 
     return Column(
@@ -242,40 +223,13 @@ class _ExtendParkingScreenState extends State<ExtendParkingScreen> {
             children: [
               _SummaryRow(label: 'مدة التمديد', value: durationLabel(_selectedExtraMinutes)),
               _SummaryRow(label: 'قيمة الإضافة', value: '$addedPrice شيكل'),
+              const _SummaryRow(label: 'طريقة الدفع', value: 'المحفظة'),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            'طريقة الدفع',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        ...List.generate(_paymentMethods.length, (index) {
-          final method = _paymentMethods[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _ChoiceTile(
-              title: method.title,
-              subtitle: method.subtitle,
-              icon: method.icon,
-              selected: _selectedPaymentIndex == index,
-              onTap: () {
-                setState(() {
-                  _selectedPaymentIndex = index;
-                });
-              },
-            ),
-          );
-        }),
-        const SizedBox(height: 6),
         const _InfoBox(
-          text: 'لن يتم تمديد الجلسة إلا بعد تأكيد الدفع.',
+          text: 'بعد التأكيد سيرسل التطبيق طلب تمديد إلى الباك، وإذا كان الرصيد غير كافٍ سيظهر لك تنبيه مناسب.',
         ),
       ],
     );
@@ -293,7 +247,7 @@ class _ExtendParkingScreenState extends State<ExtendParkingScreen> {
       _isSubmitting = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+    await Future<void>.delayed(const Duration(milliseconds: 300));
 
     if (!mounted) {
       return;
@@ -302,7 +256,6 @@ class _ExtendParkingScreenState extends State<ExtendParkingScreen> {
     Navigator.of(context).pop(
       ExtendParkingResult(
         extraMinutes: _selectedExtraMinutes,
-        paymentMethodTitle: _paymentMethods[_selectedPaymentIndex].title,
       ),
     );
   }
@@ -330,7 +283,7 @@ class _ExtendParkingScreenState extends State<ExtendParkingScreen> {
       return hours == 1 ? 'ساعة واحدة' : '$hours ساعات';
     }
 
-    return '$hours ساعة و $extraMinutes دقيقة';
+    return '${hours == 1 ? 'ساعة' : '$hours ساعات'} و $extraMinutes دقيقة';
   }
 }
 
@@ -341,7 +294,7 @@ class _MiniProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['مدة', 'دفع'];
+    const labels = ['مدة', 'تأكيد'];
 
     return Row(
       children: List.generate(labels.length * 2 - 1, (index) {
@@ -397,71 +350,6 @@ class _MiniProgress extends StatelessWidget {
           ],
         );
       }),
-    );
-  }
-}
-
-class _ChoiceTile extends StatelessWidget {
-  const _ChoiceTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Ink(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? const Color(0xFF0F766E) : const Color(0xFFE7E1D6),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: const Color(0xFF0F766E)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF5B6472),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              color: selected ? const Color(0xFF0F766E) : const Color(0xFFB8B2A7),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -559,11 +447,7 @@ class _ExtendDurationOption {
     }
 
     final hours = minutes ~/ 60;
-    if (hours == 1) {
-      return 'ساعة';
-    }
-
-    return '$hours ساعات';
+    return hours == 1 ? 'ساعة' : '$hours ساعات';
   }
 
   String? get secondaryLabel {
@@ -580,24 +464,10 @@ class _ExtendDurationOption {
   }
 }
 
-class _ExtendPaymentMethod {
-  const _ExtendPaymentMethod({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-}
-
 class ExtendParkingResult {
   const ExtendParkingResult({
     required this.extraMinutes,
-    required this.paymentMethodTitle,
   });
 
   final int extraMinutes;
-  final String paymentMethodTitle;
 }

@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 
-import 'driver_change_password_screen.dart';
-import 'driver_edit_profile_screen.dart';
-import 'driver_notification_settings_screen.dart';
-import 'driver_profile_form_result.dart';
+import 'package:flut/features/driver/profile/driver_change_password_screen.dart';
+import 'package:flut/features/driver/profile/driver_edit_profile_screen.dart';
+import 'package:flut/features/driver/profile/driver_notification_settings_screen.dart';
+import 'package:flut/features/driver/profile/driver_profile_form_result.dart';
+import 'package:flut/features/driver/profile/models/driver_user_profile.dart';
+import 'package:flut/features/driver/profile/services/profile_service.dart';
 
 class DriverProfileScreen extends StatefulWidget {
   const DriverProfileScreen({
     super.key,
+    required this.profile,
+    required this.isLoading,
+    required this.onRefreshProfile,
+    required this.onSaveProfile,
     required this.onLogout,
   });
 
+  final DriverUserProfile? profile;
+  final bool isLoading;
+  final Future<void> Function() onRefreshProfile;
+  final Future<void> Function(DriverProfileFormResult result) onSaveProfile;
   final VoidCallback onLogout;
 
   @override
@@ -18,12 +28,42 @@ class DriverProfileScreen extends StatefulWidget {
 }
 
 class _DriverProfileScreenState extends State<DriverProfileScreen> {
-  String _name = 'روعة مناصرة';
-  String _phoneNumber = '0599123456';
-  String _email = 'rawaa@example.com';
+  bool _isSavingProfile = false;
 
   @override
   Widget build(BuildContext context) {
+    final profile = widget.profile;
+
+    if (widget.isLoading && profile == null) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (profile == null) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+        children: [
+          _ProfileSection(
+            title: 'بيانات الحساب',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'تعذر تحميل بيانات الحساب حالياً. تأكد من تشغيل الـ backend ثم أعد المحاولة.',
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: widget.onRefreshProfile,
+                  child: const Text('إعادة المحاولة'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     final theme = Theme.of(context);
 
     return ListView(
@@ -49,7 +89,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     width: 74,
                     height: 74,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.16),
+                      color: Colors.white.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(22),
                     ),
                     child: const Icon(
@@ -64,7 +104,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _name,
+                          profile.fullName,
                           style: theme.textTheme.titleLarge?.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
@@ -74,7 +114,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                         Text(
                           'حساب سائق مفعل',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                       ],
@@ -86,7 +126,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.14),
+                  color: Colors.white.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -98,7 +138,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'تم التحقق من الهوية ويمكنك استخدام خدمات الوقوف والمخالفات.',
+                        'تم حفظ بيانات الهوية ورخصة القيادة في الحساب، ويمكنك استخدام خدمات الوقوف والمحفظة والمخالفات.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white,
                           height: 1.5,
@@ -116,20 +156,30 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
           title: 'بيانات الحساب',
           child: Column(
             children: [
-              const _ProfileInfoRow(
+              _ProfileInfoRow(
+                icon: Icons.person_outline_rounded,
+                label: 'الاسم',
+                value: profile.fullName,
+              ),
+              _ProfileInfoRow(
                 icon: Icons.badge_outlined,
                 label: 'رقم الهوية',
-                value: '402312345',
+                value: profile.nationalId,
+              ),
+              _ProfileInfoRow(
+                icon: Icons.credit_card_outlined,
+                label: 'رقم رخصة القيادة',
+                value: profile.drivingLicenceId ?? 'غير متوفر',
               ),
               _ProfileInfoRow(
                 icon: Icons.phone_iphone_rounded,
                 label: 'رقم الجوال',
-                value: _phoneNumber,
+                value: profile.phoneNumber,
               ),
               _ProfileInfoRow(
-                icon: Icons.alternate_email_rounded,
+                icon: Icons.email_outlined,
                 label: 'البريد الإلكتروني',
-                value: _email,
+                value: profile.email ?? 'غير مضاف',
                 isLast: true,
               ),
             ],
@@ -143,8 +193,8 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
               _ProfileActionTile(
                 icon: Icons.edit_outlined,
                 title: 'تعديل البيانات الشخصية',
-                subtitle: 'تحديث الاسم ورقم الجوال والبريد الإلكتروني.',
-                onTap: _openEditProfile,
+                subtitle: 'تحديث الاسم الكامل والجوال والبريد الإلكتروني.',
+                onTap: _isSavingProfile ? () {} : () => _openEditProfile(profile),
               ),
               const SizedBox(height: 10),
               _ProfileActionTile(
@@ -157,7 +207,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
               _ProfileActionTile(
                 icon: Icons.notifications_outlined,
                 title: 'إعدادات الإشعارات',
-                subtitle: 'التحكم بتذكير انتهاء الجلسة والتنبيهات.',
+                subtitle: 'التحكم بتنبيهات الجلسات والمخالفات.',
                 onTap: _openNotificationSettings,
               ),
             ],
@@ -184,14 +234,14 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     );
   }
 
-  Future<void> _openEditProfile() async {
+  Future<void> _openEditProfile(DriverUserProfile profile) async {
     final result = await Navigator.push<DriverProfileFormResult>(
       context,
       MaterialPageRoute(
         builder: (_) => DriverEditProfileScreen(
-          initialName: _name,
-          initialPhoneNumber: _phoneNumber,
-          initialEmail: _email,
+          initialFullName: profile.fullName,
+          initialPhoneNumber: profile.phoneNumber,
+          initialEmail: profile.email ?? '',
         ),
       ),
     );
@@ -199,10 +249,29 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     if (result == null) return;
 
     setState(() {
-      _name = result.name;
-      _phoneNumber = result.phoneNumber;
-      _email = result.email;
+      _isSavingProfile = true;
     });
+
+    try {
+      await widget.onSaveProfile(result);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تحديث بيانات الحساب بنجاح.'),
+        ),
+      );
+    } on ProfileException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSavingProfile = false;
+      });
+    }
   }
 
   Future<void> _openChangePassword() async {
@@ -266,7 +335,7 @@ class _ProfileSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(

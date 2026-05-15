@@ -343,7 +343,6 @@ class _SignupScreenState extends State<SignupScreen> {
           licensePlate: vehicle.plateController.text.trim(),
           vehicleType: vehicle.typeController.text.trim(),
           color: vehicle.colorController.text.trim(),
-          isDefault: index == 0,
         );
       }
 

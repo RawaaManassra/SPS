@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:flut/features/driver/vehicles/driver_vehicle_form_screen.dart';
+import 'package:flut/features/driver/vehicles/models/driver_vehicle.dart';
+import 'package:flut/features/driver/vehicles/services/vehicle_service.dart';
 
 class DriverVehiclesScreen extends StatefulWidget {
   const DriverVehiclesScreen({super.key});
@@ -10,29 +12,55 @@ class DriverVehiclesScreen extends StatefulWidget {
 }
 
 class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
-  final List<_VehicleItem> _vehicles = [
-    const _VehicleItem(
-      plateNumber: '24-381-15',
-      vehicleType: 'Hyundai i20',
-      color: 'أبيض',
-      isPrimary: true,
-    ),
-    const _VehicleItem(
-      plateNumber: '31-662-08',
-      vehicleType: 'Kia Picanto',
-      color: 'فضي',
-    ),
-  ];
+  final _vehicleService = VehicleService();
 
-  Future<void> _openVehicleForm({_VehicleItem? vehicle, int? index}) async {
+  List<DriverVehicle> _vehicles = const [];
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVehicles();
+  }
+
+  Future<void> _loadVehicles() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final vehicles = await _vehicleService.getVehicles();
+      if (!mounted) return;
+      setState(() {
+        _vehicles = vehicles;
+      });
+    } on VehicleException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'تعذر تحميل المركبات حالياً.';
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openAddVehicleForm() async {
     final result = await Navigator.of(context).push<DriverVehicleFormResult>(
       MaterialPageRoute(
-        builder: (_) => DriverVehicleFormScreen(
-          initialPlateNumber: vehicle?.plateNumber,
-          initialVehicleType: vehicle?.vehicleType,
-          initialColor: vehicle?.color,
-          title: vehicle == null ? 'إضافة مركبة جديدة' : 'تعديل بيانات المركبة',
-          actionLabel: vehicle == null ? 'إضافة المركبة' : 'حفظ التعديلات',
+        builder: (_) => const DriverVehicleFormScreen(
+          title: 'إضافة مركبة جديدة',
+          actionLabel: 'إضافة المركبة',
         ),
       ),
     );
@@ -42,30 +70,112 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
     }
 
     setState(() {
-      if (index == null) {
-        _vehicles.add(
-          _VehicleItem(
-            plateNumber: result.plateNumber,
-            vehicleType: result.vehicleType,
-            color: result.color,
-            isPrimary: _vehicles.isEmpty,
-          ),
-        );
-      } else {
-        final current = _vehicles[index];
-        _vehicles[index] = _VehicleItem(
-          plateNumber: result.plateNumber,
-          vehicleType: result.vehicleType,
-          color: result.color,
-          isPrimary: current.isPrimary,
-        );
-      }
+      _isSubmitting = true;
     });
+
+    try {
+      await _vehicleService.addVehicle(
+        licensePlate: result.plateNumber,
+        vehicleType: result.vehicleType,
+        color: result.color,
+      );
+
+      await _loadVehicles();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تمت إضافة المركبة بنجاح.')),
+      );
+    } on VehicleException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
   }
 
-  Future<void> _showVehicleActions(int index) async {
-    final vehicle = _vehicles[index];
+  Future<void> _openEditVehicleForm(DriverVehicle vehicle) async {
+    final result = await Navigator.of(context).push<DriverVehicleFormResult>(
+      MaterialPageRoute(
+        builder: (_) => DriverVehicleFormScreen(
+          title: 'تعديل بيانات المركبة',
+          actionLabel: 'حفظ التعديلات',
+          initialPlateNumber: vehicle.plateNumber,
+          initialVehicleType: vehicle.vehicleType,
+          initialColor: vehicle.color,
+        ),
+      ),
+    );
 
+    if (!mounted || result == null) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _vehicleService.updateVehicle(
+        vehicleId: vehicle.id,
+        licensePlate: result.plateNumber,
+        vehicleType: result.vehicleType,
+        color: result.color,
+      );
+
+      await _loadVehicles();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم تحديث بيانات المركبة بنجاح.')),
+      );
+    } on VehicleException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
+  }
+
+  Future<void> _setDefaultVehicle(DriverVehicle vehicle) async {
+    if (vehicle.isDefault) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _vehicleService.setDefaultVehicle(vehicle.id);
+      await _loadVehicles();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم تعيين المركبة الأساسية بنجاح.')),
+      );
+    } on VehicleException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
+  }
+
+  Future<void> _showVehicleActions(DriverVehicle vehicle) async {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -103,17 +213,17 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
                   label: 'تعديل بيانات المركبة',
                   onTap: () {
                     Navigator.of(context).pop();
-                    _openVehicleForm(vehicle: vehicle, index: index);
+                    _openEditVehicleForm(vehicle);
                   },
                 ),
                 _ActionTile(
                   icon: Icons.star_outline_rounded,
-                  label: 'تعيين كمركبة أساسية',
-                  onTap: vehicle.isPrimary
+                  label: vehicle.isDefault ? 'هذه هي المركبة الأساسية' : 'تعيين كمركبة أساسية',
+                  onTap: vehicle.isDefault
                       ? null
                       : () {
                           Navigator.of(context).pop();
-                          _setPrimaryVehicle(index);
+                          _setDefaultVehicle(vehicle);
                         },
                 ),
                 _ActionTile(
@@ -122,7 +232,7 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
                   isDestructive: true,
                   onTap: () {
                     Navigator.of(context).pop();
-                    _confirmDeleteVehicle(index);
+                    _confirmDeleteVehicle(vehicle);
                   },
                 ),
               ],
@@ -133,21 +243,7 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
     );
   }
 
-  void _setPrimaryVehicle(int selectedIndex) {
-    setState(() {
-      for (var i = 0; i < _vehicles.length; i++) {
-        _vehicles[i] = _VehicleItem(
-          plateNumber: _vehicles[i].plateNumber,
-          vehicleType: _vehicles[i].vehicleType,
-          color: _vehicles[i].color,
-          isPrimary: i == selectedIndex,
-        );
-      }
-    });
-  }
-
-  Future<void> _confirmDeleteVehicle(int index) async {
-    final vehicle = _vehicles[index];
+  Future<void> _confirmDeleteVehicle(DriverVehicle vehicle) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -176,79 +272,107 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
     }
 
     setState(() {
-      final wasPrimary = _vehicles[index].isPrimary;
-      _vehicles.removeAt(index);
-
-      if (wasPrimary && _vehicles.isNotEmpty) {
-        _vehicles[0] = _VehicleItem(
-          plateNumber: _vehicles[0].plateNumber,
-          vehicleType: _vehicles[0].vehicleType,
-          color: _vehicles[0].color,
-          isPrimary: true,
-        );
-      }
+      _isSubmitting = true;
     });
+
+    try {
+      await _vehicleService.deleteVehicle(vehicle.id);
+      await _loadVehicles();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حذف المركبة بنجاح.')),
+      );
+    } on VehicleException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'مركباتي',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+    return RefreshIndicator(
+      onRefresh: _loadVehicles,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'مركباتي',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'أدر المركبات المرتبطة بحسابك وأضف مركبة جديدة عند الحاجة.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF5B6472),
+                    const SizedBox(height: 8),
+                    Text(
+                      'الآن يمكنك عرض المركبات وإضافتها وتعديلها وتعيين المركبة الأساسية مباشرة من الباك.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF5B6472),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            IconButton.filled(
-              onPressed: _openVehicleForm,
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFF0F766E),
-                foregroundColor: Colors.white,
+              IconButton.filled(
+                onPressed: _isSubmitting ? null : _openAddVehicleForm,
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                ),
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.add_rounded),
               ),
-              icon: const Icon(Icons.add_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        if (_vehicles.isEmpty)
-          const _EmptyVehiclesState()
-        else
-          ...List.generate(_vehicles.length, (index) {
-            final vehicle = _vehicles[index];
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (_isLoading)
+            const _VehiclesLoadingState()
+          else if (_errorMessage != null)
+            _VehiclesErrorState(
+              message: _errorMessage!,
+              onRetry: _loadVehicles,
+            )
+          else if (_vehicles.isEmpty)
+            const _EmptyVehiclesState()
+          else
+            ...List.generate(_vehicles.length, (index) {
+              final vehicle = _vehicles[index];
 
-            return Padding(
-              padding:
-                  EdgeInsets.only(bottom: index == _vehicles.length - 1 ? 0 : 12),
-              child: VehicleListCard(
-                plateNumber: vehicle.plateNumber,
-                vehicleType: vehicle.vehicleType,
-                color: vehicle.color,
-                status: vehicle.isPrimary ? 'المركبة الأساسية' : 'مركبة مضافة',
-                onMorePressed: () => _showVehicleActions(index),
-              ),
-            );
-          }),
-      ],
+              return Padding(
+                padding: EdgeInsets.only(bottom: index == _vehicles.length - 1 ? 0 : 12),
+                child: VehicleListCard(
+                  plateNumber: vehicle.plateNumber,
+                  vehicleType: vehicle.vehicleType,
+                  color: vehicle.color ?? 'غير محدد',
+                  status: vehicle.isDefault ? 'المركبة الأساسية' : 'مركبة مسجلة',
+                  onMorePressed: () => _showVehicleActions(vehicle),
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 }
@@ -413,16 +537,74 @@ class _EmptyVehiclesState extends StatelessWidget {
   }
 }
 
-class _VehicleItem {
-  const _VehicleItem({
-    required this.plateNumber,
-    required this.vehicleType,
-    required this.color,
-    this.isPrimary = false,
+class _VehiclesLoadingState extends StatelessWidget {
+  const _VehiclesLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+
+class _VehiclesErrorState extends StatelessWidget {
+  const _VehiclesErrorState({
+    required this.message,
+    required this.onRetry,
   });
 
-  final String plateNumber;
-  final String vehicleType;
-  final String color;
-  final bool isPrimary;
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFD63C31),
+            size: 34,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'تعذر تحميل المركبات',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF5B6472),
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: () {
+              onRetry();
+            },
+            child: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
+    );
+  }
 }

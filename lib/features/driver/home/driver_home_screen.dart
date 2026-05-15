@@ -5,7 +5,10 @@ import 'package:flut/features/driver/parking/driver_parking_session.dart';
 class DriverHomeScreen extends StatelessWidget {
   const DriverHomeScreen({
     super.key,
+    required this.greetingName,
     required this.activeSession,
+    required this.walletBalance,
+    required this.isWalletLoading,
     required this.onStartSession,
     required this.onEndSession,
     required this.onExtendSession,
@@ -13,7 +16,10 @@ class DriverHomeScreen extends StatelessWidget {
     required this.onOpenWallet,
   });
 
+  final String greetingName;
   final DriverParkingSession? activeSession;
+  final double walletBalance;
+  final bool isWalletLoading;
   final VoidCallback onStartSession;
   final VoidCallback onEndSession;
   final VoidCallback onExtendSession;
@@ -42,7 +48,7 @@ class DriverHomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'مرحباً، روعة',
+                'مرحباً، $greetingName',
                 style: theme.textTheme.titleLarge?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -80,13 +86,23 @@ class DriverHomeScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Text(
-                        '42.00 شيكل',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
+                      if (isWalletLoading)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      else
+                        Text(
+                          '${walletBalance.toStringAsFixed(2)} شيكل',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -161,7 +177,7 @@ class HomeViolationsCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'لديك مخالفة غير مدفوعة تحتاج إلى متابعة.',
+                      'يمكنك عرض المخالفات الحالية وإكمال الدفع من مكان واحد.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: const Color(0xFF5B6472),
                       ),
@@ -259,7 +275,7 @@ class EmptySessionCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'ابدأ جلسة جديدة باختيار المركبة والموقع والمدة وطريقة الدفع.',
+            'ابدأ جلسة جديدة باختيار المركبة والموقع والمدة وسيتم خصم المبلغ من المحفظة.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: const Color(0xFF5B6472),
             ),
@@ -292,7 +308,9 @@ class ActiveSessionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final remainingMinutes = session.remainingMinutes;
-    final progress = (remainingMinutes / session.durationMinutes).clamp(0.0, 1.0);
+    final progress = session.durationMinutes == 0
+        ? 0.0
+        : (remainingMinutes / session.durationMinutes).clamp(0.0, 1.0);
 
     return SectionCard(
       title: 'جلسة وقوف نشطة',

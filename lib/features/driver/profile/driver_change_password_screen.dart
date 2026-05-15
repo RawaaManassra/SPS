@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
+import 'services/profile_service.dart';
+
 class DriverChangePasswordScreen extends StatefulWidget {
   const DriverChangePasswordScreen({super.key});
 
   @override
-  State<DriverChangePasswordScreen> createState() =>
-      _DriverChangePasswordScreenState();
+  State<DriverChangePasswordScreen> createState() => _DriverChangePasswordScreenState();
 }
 
-class _DriverChangePasswordScreenState
-    extends State<DriverChangePasswordScreen> {
+class _DriverChangePasswordScreenState extends State<DriverChangePasswordScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _profileService = ProfileService();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -39,7 +40,7 @@ class _DriverChangePasswordScreenState
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.92),
+              color: Colors.white.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(28),
             ),
             child: Form(
@@ -115,16 +116,30 @@ class _DriverChangePasswordScreenState
       _isSaving = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+    try {
+      await _profileService.changePassword(
+        currentPassword: _currentPasswordController.text.trim(),
+        newPassword: _newPasswordController.text.trim(),
+      );
 
-    if (!mounted) return;
-
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم تحديث كلمة المرور بنجاح.'),
-      ),
-    );
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تحديث كلمة المرور بنجاح.'),
+        ),
+      );
+    } on ProfileException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+      });
+    }
   }
 
   String? _passwordValidator(String? value) {

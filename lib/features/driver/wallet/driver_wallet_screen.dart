@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/driver/wallet/models/driver_wallet.dart';
+import 'package:flut/features/driver/wallet/models/driver_wallet_transaction.dart';
+import 'package:flut/features/driver/wallet/services/wallet_service.dart';
+
 class DriverWalletScreen extends StatefulWidget {
   const DriverWalletScreen({super.key});
 
@@ -8,31 +12,52 @@ class DriverWalletScreen extends StatefulWidget {
 }
 
 class _DriverWalletScreenState extends State<DriverWalletScreen> {
-  double _balance = 42.0;
+  final _walletService = WalletService();
 
-  final List<_WalletTransaction> _transactions = [
-    const _WalletTransaction(
-      title: 'شحن المحفظة',
-      subtitle: 'Jawwal Pay',
-      amount: '+20 شيكل',
-      timeLabel: 'اليوم',
-      isPositive: true,
-    ),
-    const _WalletTransaction(
-      title: 'دفع جلسة وقوف',
-      subtitle: 'المركبة 24-381-15',
-      amount: '-3 شيكل',
-      timeLabel: 'اليوم',
-      isPositive: false,
-    ),
-    const _WalletTransaction(
-      title: 'دفع مخالفة',
-      subtitle: 'المركبة 31-662-08',
-      amount: '-15 شيكل',
-      timeLabel: 'أمس',
-      isPositive: false,
-    ),
-  ];
+  DriverWallet? _wallet;
+  List<DriverWalletTransaction> _transactions = const [];
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWalletData();
+  }
+
+  Future<void> _loadWalletData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final wallet = await _walletService.getWallet();
+      final transactions = await _walletService.getTransactions();
+
+      if (!mounted) return;
+      setState(() {
+        _wallet = wallet;
+        _transactions = transactions.reversed.toList();
+      });
+    } on WalletException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'تعذر تحميل بيانات المحفظة حالياً.';
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   Future<void> _openChargeWalletFlow() async {
     final result = await Navigator.of(context).push<_WalletChargeResult>(
@@ -46,105 +71,157 @@ class _DriverWalletScreenState extends State<DriverWalletScreen> {
     }
 
     setState(() {
-      _balance += result.amount.toDouble();
-      _transactions.insert(
-        0,
-        _WalletTransaction(
-          title: 'شحن المحفظة',
-          subtitle: result.paymentMethod,
-          amount: '+${result.amount} شيكل',
-          timeLabel: 'الآن',
-          isPositive: true,
-        ),
-      );
+      _isSubmitting = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم شحن المحفظة بمبلغ ${result.amount} شيكل بنجاح.'),
-      ),
-    );
+    try {
+      await _walletService.topUpWallet(amount: result.amount);
+      await _loadWalletData();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تم شحن المحفظة بمبلغ ${result.amount} شيكل بنجاح.',
+          ),
+        ),
+      );
+    } on WalletException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر شحن المحفظة حالياً.')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final balance = _wallet?.balance ?? 0;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('المحفظة'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF0F766E),
-                  Color(0xFF17867D),
+      body: RefreshIndicator(
+        onRefresh: _loadWalletData,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF0F766E),
+                    Color(0xFF17867D),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'الرصيد الحالي',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.88),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (_isLoading)
+                    const SizedBox(
+                      height: 36,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      '${balance.toStringAsFixed(2)} شيكل',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _isLoading || _isSubmitting ? null : _openChargeWalletFlow,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F766E),
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.2),
+                          )
+                        : const Text('شحن المحفظة'),
+                  ),
                 ],
               ),
-              borderRadius: BorderRadius.circular(28),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'الرصيد الحالي',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.88),
-                  ),
+            const SizedBox(height: 18),
+            if (_errorMessage != null)
+              _WalletErrorState(
+                message: _errorMessage!,
+                onRetry: _loadWalletData,
+              )
+            else if (_isLoading)
+              const _WalletLoadingState()
+            else
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(28),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  '${_balance.toStringAsFixed(2)} شيكل',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'سجل عمليات المحفظة',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    if (_transactions.isEmpty)
+                      const _EmptyTransactionsState()
+                    else
+                      ...List.generate(_transactions.length, (index) {
+                        final item = _transactions[index];
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: index == _transactions.length - 1 ? 0 : 12,
+                          ),
+                          child: _WalletTransactionCard(item: item),
+                        );
+                      }),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _openChargeWalletFlow,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF0F766E),
-                  ),
-                  child: const Text('شحن المحفظة'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'سجل عمليات المحفظة',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ...List.generate(_transactions.length, (index) {
-                  final item = _transactions[index];
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: index == _transactions.length - 1 ? 0 : 12),
-                    child: _WalletTransactionCard(item: item),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ],
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -254,6 +331,12 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                 ),
                 child: Text(_currentStep == 0 ? 'إلغاء' : 'رجوع'),
               ),
+              if (_currentStep == 1) ...[
+                const SizedBox(height: 12),
+                const _InfoBox(
+                  text: 'مهم: الباك الحالي يسجل مبلغ الشحن فقط، أما طريقة الدفع فهي معروضة هنا كجزء من تجربة الواجهة.',
+                ),
+              ],
             ],
           ),
         ),
@@ -406,7 +489,7 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
       _isSubmitting = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+    await Future<void>.delayed(const Duration(milliseconds: 400));
 
     if (!mounted) {
       return;
@@ -437,12 +520,13 @@ class _WalletTransactionCard extends StatelessWidget {
     required this.item,
   });
 
-  final _WalletTransaction item;
+  final DriverWalletTransaction item;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = item.isPositive ? const Color(0xFF0F766E) : const Color(0xFFD63C31);
+    final isPositive = item.transactionType == 'top_up' || item.transactionType == 'refund';
+    final color = isPositive ? const Color(0xFF0F766E) : const Color(0xFFD63C31);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -460,7 +544,7 @@ class _WalletTransactionCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
-              item.isPositive ? Icons.add_card_rounded : Icons.payments_outlined,
+              isPositive ? Icons.add_card_rounded : Icons.payments_outlined,
               color: color,
             ),
           ),
@@ -473,14 +557,14 @@ class _WalletTransactionCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        item.title,
+                        _titleForType(item.transactionType),
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                     Text(
-                      item.timeLabel,
+                      _timeLabel(item.createdAt),
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: const Color(0xFF6B7280),
                       ),
@@ -489,7 +573,7 @@ class _WalletTransactionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  item.subtitle,
+                  _subtitleForType(item),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: const Color(0xFF5B6472),
                   ),
@@ -499,7 +583,7 @@ class _WalletTransactionCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            item.amount,
+            '${isPositive ? '+' : '-'}${item.amount} شيكل',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w800,
               color: color,
@@ -508,6 +592,60 @@ class _WalletTransactionCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _titleForType(String type) {
+    switch (type) {
+      case 'top_up':
+        return 'شحن المحفظة';
+      case 'session_start':
+        return 'دفع جلسة وقوف';
+      case 'session_extension':
+        return 'تمديد جلسة وقوف';
+      case 'refund':
+        return 'استرداد رصيد';
+      default:
+        return 'عملية محفظة';
+    }
+  }
+
+  String _subtitleForType(DriverWalletTransaction transaction) {
+    if (transaction.sessionId != null) {
+      return 'مرتبطة بالجلسة ${transaction.sessionId}';
+    }
+
+    switch (transaction.transactionType) {
+      case 'top_up':
+        return 'تمت إضافة رصيد إلى المحفظة';
+      case 'refund':
+        return 'تم إرجاع مبلغ إلى المحفظة';
+      default:
+        return 'عملية محفوظة في الباك';
+    }
+  }
+
+  String _timeLabel(DateTime? createdAt) {
+    if (createdAt == null) {
+      return 'غير محدد';
+    }
+
+    final localTime = createdAt.toLocal();
+    final now = DateTime.now();
+    final difference = now.difference(localTime);
+
+    if (difference.inMinutes < 1) {
+      return 'الآن';
+    }
+
+    if (difference.inHours < 1) {
+      return 'منذ ${difference.inMinutes} د';
+    }
+
+    if (difference.inDays < 1) {
+      return 'منذ ${difference.inHours} س';
+    }
+
+    return '${localTime.day}/${localTime.month}/${localTime.year}';
   }
 }
 
@@ -544,7 +682,9 @@ class _MiniProgress extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: isActive || isDone ? const Color(0xFF0F766E) : const Color(0xFFE7E1D6),
+                color: isActive || isDone
+                    ? const Color(0xFF0F766E)
+                    : const Color(0xFFE7E1D6),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -566,7 +706,9 @@ class _MiniProgress extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontSize: 10,
-                      color: isActive ? const Color(0xFF0F766E) : const Color(0xFF8A8F98),
+                      color: isActive
+                          ? const Color(0xFF0F766E)
+                          : const Color(0xFF8A8F98),
                       fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                     ),
               ),
@@ -633,7 +775,9 @@ class _ChoiceTile extends StatelessWidget {
               ),
             ),
             Icon(
-              selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
               color: selected ? const Color(0xFF0F766E) : const Color(0xFFB8B2A7),
             ),
           ],
@@ -721,20 +865,94 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _WalletTransaction {
-  const _WalletTransaction({
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.timeLabel,
-    required this.isPositive,
+class _WalletLoadingState extends StatelessWidget {
+  const _WalletLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+
+class _WalletErrorState extends StatelessWidget {
+  const _WalletErrorState({
+    required this.message,
+    required this.onRetry,
   });
 
-  final String title;
-  final String subtitle;
-  final String amount;
-  final String timeLabel;
-  final bool isPositive;
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFD63C31),
+            size: 34,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'تعذر تحميل المحفظة',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF5B6472),
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: () {
+              onRetry();
+            },
+            child: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyTransactionsState extends StatelessWidget {
+  const _EmptyTransactionsState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Text(
+        'لا توجد عمليات محفوظة في المحفظة حالياً.',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF5B6472),
+            ),
+      ),
+    );
+  }
 }
 
 class _WalletPaymentMethod {

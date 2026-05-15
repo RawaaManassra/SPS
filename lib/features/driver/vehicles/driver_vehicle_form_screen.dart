@@ -63,7 +63,7 @@ class _DriverVehicleFormScreenState extends State<DriverVehicleFormScreen> {
       _isSaving = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 250));
 
     if (!mounted) {
       return;

@@ -6,11 +6,17 @@ import 'package:flut/features/driver/map/driver_map_screen.dart';
 import 'package:flut/features/driver/notifications/driver_notifications_screen.dart';
 import 'package:flut/features/driver/parking/driver_parking_session.dart';
 import 'package:flut/features/driver/parking/extend_parking_screen.dart';
+import 'package:flut/features/driver/parking/services/parking_service.dart';
 import 'package:flut/features/driver/parking/start_parking_screen.dart';
+import 'package:flut/features/driver/profile/driver_profile_form_result.dart';
 import 'package:flut/features/driver/profile/driver_profile_screen.dart';
+import 'package:flut/features/driver/profile/models/driver_user_profile.dart';
+import 'package:flut/features/driver/profile/services/profile_service.dart';
 import 'package:flut/features/driver/vehicles/driver_vehicles_screen.dart';
+import 'package:flut/features/driver/vehicles/services/vehicle_service.dart';
 import 'package:flut/features/driver/violations/driver_violations_screen.dart';
 import 'package:flut/features/driver/wallet/driver_wallet_screen.dart';
+import 'package:flut/features/driver/wallet/services/wallet_service.dart';
 
 class DriverShellScreen extends StatefulWidget {
   const DriverShellScreen({super.key});
@@ -20,8 +26,17 @@ class DriverShellScreen extends StatefulWidget {
 }
 
 class _DriverShellScreenState extends State<DriverShellScreen> {
+  final _walletService = WalletService();
+  final _vehicleService = VehicleService();
+  final _parkingService = ParkingService();
+  final _profileService = ProfileService();
+
   int _currentIndex = 0;
   DriverParkingSession? _activeSession;
+  DriverUserProfile? _currentUser;
+  double _walletBalance = 0;
+  bool _isWalletLoading = true;
+  bool _isProfileLoading = true;
 
   static const _titles = [
     'الرئيسية',
@@ -30,6 +45,12 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
     'مركباتي',
     'حسابي',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapHomeState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +70,12 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
         index: _currentIndex,
         children: [
           DriverHomeScreen(
+            greetingName: _currentUser?.fullName.isNotEmpty == true
+                ? _currentUser!.fullName
+                : 'السائق',
             activeSession: _activeSession,
+            walletBalance: _walletBalance,
+            isWalletLoading: _isWalletLoading,
             onStartSession: _openStartParkingFlow,
             onEndSession: _confirmEndSession,
             onExtendSession: _openExtendSessionFlow,
@@ -60,6 +86,10 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
           const DriverHistoryScreen(),
           const DriverVehiclesScreen(),
           DriverProfileScreen(
+            profile: _currentUser,
+            isLoading: _isProfileLoading,
+            onRefreshProfile: _loadCurrentUser,
+            onSaveProfile: _saveProfileChanges,
             onLogout: _handleLogout,
           ),
         ],
@@ -105,6 +135,106 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
     );
   }
 
+  Future<void> _bootstrapHomeState() async {
+    await Future.wait([
+      _loadWalletBalance(),
+      _loadActiveSession(),
+      _loadCurrentUser(),
+    ]);
+  }
+
+  Future<void> _loadWalletBalance() async {
+    setState(() {
+      _isWalletLoading = true;
+    });
+
+    try {
+      final wallet = await _walletService.getWallet();
+      if (!mounted) return;
+      setState(() {
+        _walletBalance = wallet.balance;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _walletBalance = 0;
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isWalletLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadActiveSession() async {
+    try {
+      final vehicles = await _vehicleService.getVehicles();
+      final session = await _parkingService.getActiveSession(vehicles);
+      if (!mounted) return;
+      setState(() {
+        _activeSession = session;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _activeSession = null;
+      });
+    }
+  }
+
+  Future<void> _loadCurrentUser() async {
+    setState(() {
+      _isProfileLoading = true;
+    });
+
+    try {
+      final profile = await _profileService.getCurrentUser();
+      if (!mounted) return;
+      setState(() {
+        _currentUser = profile;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _currentUser = null;
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isProfileLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveProfileChanges(DriverProfileFormResult result) async {
+    await _profileService.updateProfile(
+      username: _currentUser?.username ?? '',
+      fullName: result.fullName,
+      phoneNumber: result.phoneNumber,
+      email: result.email.trim().isEmpty ? null : result.email.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _currentUser = (_currentUser ??
+              const DriverUserProfile(
+                id: 0,
+                username: '',
+                fullName: '',
+                nationalId: '',
+                phoneNumber: '',
+                email: null,
+                drivingLicenceId: null,
+              ))
+          .copyWith(
+        fullName: result.fullName,
+        phoneNumber: result.phoneNumber,
+        email: result.email.trim().isEmpty ? null : result.email.trim(),
+      );
+    });
+  }
+
   Future<void> _openStartParkingFlow() async {
     final session = await Navigator.push<DriverParkingSession>(
       context,
@@ -113,16 +243,21 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
       ),
     );
 
-    if (session != null) {
-      setState(() {
-        _activeSession = session;
-        _currentIndex = 0;
-      });
+    if (session == null) {
+      return;
     }
+
+    setState(() {
+      _activeSession = session;
+      _currentIndex = 0;
+    });
+
+    await _loadWalletBalance();
   }
 
   Future<void> _openExtendSessionFlow() async {
-    if (_activeSession == null) {
+    final activeSession = _activeSession;
+    if (activeSession == null) {
       return;
     }
 
@@ -132,35 +267,44 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
       ),
     );
 
-    if (extendResult == null || _activeSession == null) {
+    if (extendResult == null || !mounted) {
       return;
     }
 
-    final addedPrice = extendResult.extraMinutes ~/ 30;
-    setState(() {
-      _activeSession = _activeSession!.copyWith(
-        durationMinutes: _activeSession!.durationMinutes + extendResult.extraMinutes,
-        totalPrice: _activeSession!.totalPrice + addedPrice,
-        paymentMethodLabel: extendResult.paymentMethodTitle,
-        endsAt: _activeSession!.endsAt.add(Duration(minutes: extendResult.extraMinutes)),
+    try {
+      await _parkingService.extendSession(
+        vehicleId: activeSession.vehicleId,
+        durationMinutes: extendResult.extraMinutes,
       );
-    });
 
-    if (!mounted) {
-      return;
-    }
+      setState(() {
+        _activeSession = activeSession.copyWith(
+          durationMinutes: activeSession.durationMinutes + extendResult.extraMinutes,
+          totalPrice: activeSession.totalPrice + (extendResult.extraMinutes ~/ 30),
+          endsAt: activeSession.endsAt.add(Duration(minutes: extendResult.extraMinutes)),
+          paymentMethodLabel: 'المحفظة',
+        );
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'تم تمديد الجلسة ${extendResult.extraMinutes} دقيقة عبر ${extendResult.paymentMethodTitle}.',
+      await _loadWalletBalance();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تم تمديد الجلسة ${extendResult.extraMinutes} دقيقة بنجاح.'),
         ),
-      ),
-    );
+      );
+    } on ParkingException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   Future<void> _confirmEndSession() async {
-    if (_activeSession == null) {
+    final activeSession = _activeSession;
+    if (activeSession == null) {
       return;
     }
 
@@ -184,19 +328,26 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
       },
     );
 
-    if (shouldEnd == true) {
+    if (shouldEnd != true || !mounted) {
+      return;
+    }
+
+    try {
+      await _parkingService.endSession(vehicleId: activeSession.vehicleId);
       setState(() {
         _activeSession = null;
       });
 
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('تم إنهاء الجلسة الحالية.'),
         ),
+      );
+    } on ParkingException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
       );
     }
   }
@@ -223,6 +374,8 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
         builder: (_) => const DriverWalletScreen(),
       ),
     );
+
+    await _loadWalletBalance();
   }
 
   void _handleLogout() {

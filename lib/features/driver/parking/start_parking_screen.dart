@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:flut/features/driver/parking/driver_parking_session.dart';
+import 'package:flut/features/driver/parking/services/parking_service.dart';
 import 'package:flut/features/driver/vehicles/driver_vehicle_form_screen.dart';
+import 'package:flut/features/driver/vehicles/models/driver_vehicle.dart';
+import 'package:flut/features/driver/vehicles/services/vehicle_service.dart';
 
 class StartParkingScreen extends StatefulWidget {
   const StartParkingScreen({super.key});
@@ -11,41 +14,35 @@ class StartParkingScreen extends StatefulWidget {
 }
 
 class _StartParkingScreenState extends State<StartParkingScreen> {
-  int _currentStep = 0;
-  int _selectedVehicleIndex = 0;
-  int _selectedDurationMinutes = 30;
-  int _selectedPaymentIndex = 0;
-  bool _useCurrentLocation = true;
-  bool _isSubmitting = false;
-  final TextEditingController _qrController = TextEditingController();
-
-  final List<_VehicleItem> _vehicles = [
-    const _VehicleItem(
-      plateNumber: '24-381-15',
-      model: 'Hyundai i20',
-      color: 'أبيض',
-      tag: 'المركبة الأساسية',
-    ),
-    const _VehicleItem(
-      plateNumber: '31-662-08',
-      model: 'Kia Picanto',
-      color: 'فضي',
-      tag: 'مركبة مضافة',
-    ),
-  ];
-
-  static const _paymentMethods = [
-    _PaymentMethod(title: 'المحفظة', subtitle: 'الرصيد المتاح: 42 شيكل'),
-    _PaymentMethod(title: 'بطاقة بنكية', subtitle: 'Visa / Mastercard'),
-    _PaymentMethod(title: 'Google Pay', subtitle: 'الدفع السريع من الهاتف'),
-  ];
-
   static const _stepTitles = [
     'اختيار المركبة',
     'تأكيد الموقع',
     'اختيار المدة',
-    'الدفع والتأكيد',
+    'التأكيد والبدء',
   ];
+
+  static const _fallbackLatitude = 31.5326;
+  static const _fallbackLongitude = 35.0998;
+
+  final _vehicleService = VehicleService();
+  final _parkingService = ParkingService();
+  final _qrController = TextEditingController();
+
+  int _currentStep = 0;
+  int _selectedVehicleIndex = 0;
+  int _selectedDurationMinutes = 30;
+  bool _useCurrentLocation = true;
+  bool _isLoadingVehicles = true;
+  bool _isSubmitting = false;
+  String? _loadError;
+  String? _submitError;
+  List<DriverVehicle> _vehicles = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVehicles();
+  }
 
   @override
   void dispose() {
@@ -100,6 +97,10 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
                 ),
               ),
               const SizedBox(height: 18),
+              if (_submitError != null) ...[
+                _ErrorBanner(message: _submitError!),
+                const SizedBox(height: 12),
+              ],
               _buildStepContent(),
               const SizedBox(height: 18),
               ElevatedButton(
@@ -134,29 +135,20 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
   String _subtitleForStep() {
     switch (_currentStep) {
       case 0:
-        return 'اختر المركبة التي تريد بدء جلسة الوقوف لها.';
+        return 'اختري المركبة التي ستبدئين بها الجلسة. إذا لم تكن موجودة، أضيفيها أولاً.';
       case 1:
-        return 'يمكنك استخدام موقعك الحالي أو إدخال رمز QR الموجود في مكان الوقوف.';
+        return 'يمكنك استخدام الموقع الحالي أو إدخال رمز QR الخاص بمكان الوقوف. الربط الحالي يرسل موقعاً محفوظاً مؤقتاً إلى الباك.';
       case 2:
-        return 'أقل مدة للوقوف هي 30 دقيقة بسعر 1 شيكل، والسعر يزيد كل نصف ساعة.';
+        return 'الحد الأدنى 30 دقيقة بسعر 1 شيكل، والسعر يزيد كل نصف ساعة.';
       default:
-        return 'راجع تفاصيل الجلسة وطريقة الدفع قبل بدء الوقوف.';
+        return 'الدفع الفعلي في الباك يتم من المحفظة فقط، لذلك راجعي الرصيد والمعلومات قبل البدء.';
     }
   }
 
   Widget _buildStepContent() {
     switch (_currentStep) {
       case 0:
-        return _VehicleStep(
-          vehicles: _vehicles,
-          selectedIndex: _selectedVehicleIndex,
-          onSelected: (index) {
-            setState(() {
-              _selectedVehicleIndex = index;
-            });
-          },
-          onAddVehicle: _openVehicleForm,
-        );
+        return _buildVehicleStep();
       case 1:
         return _LocationStep(
           useCurrentLocation: _useCurrentLocation,
@@ -172,9 +164,7 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
           minutes: _selectedDurationMinutes,
           price: _priceForDuration(_selectedDurationMinutes),
           onDecrease: () {
-            if (_selectedDurationMinutes == 30) {
-              return;
-            }
+            if (_selectedDurationMinutes == 30) return;
             setState(() {
               _selectedDurationMinutes -= 30;
             });
@@ -188,29 +178,128 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
       default:
         return _PaymentStep(
           vehicle: _vehicles[_selectedVehicleIndex],
-          duration: _DurationOption(
-            minutes: _selectedDurationMinutes,
-            price: _priceForDuration(_selectedDurationMinutes),
-          ),
+          durationLabel: _durationLabel(_selectedDurationMinutes),
+          totalPrice: _priceForDuration(_selectedDurationMinutes),
           locationLabel: _locationLabel,
-          methods: _paymentMethods,
-          selectedMethodIndex: _selectedPaymentIndex,
-          onPaymentSelected: (index) {
-            setState(() {
-              _selectedPaymentIndex = index;
-            });
-          },
         );
     }
   }
 
-  String get _locationLabel {
-    if (_useCurrentLocation) {
-      return 'الموقع الحالي';
+  Widget _buildVehicleStep() {
+    if (_isLoadingVehicles) {
+      return const _WhiteCard(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
     }
 
-    final qr = _qrController.text.trim();
-    return qr.isEmpty ? 'رمز QR' : 'رمز QR: $qr';
+    if (_loadError != null) {
+      return _WhiteCard(
+        child: Column(
+          children: [
+            _ErrorBanner(message: _loadError!),
+            const SizedBox(height: 14),
+            OutlinedButton(
+              onPressed: _loadVehicles,
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_vehicles.isEmpty) {
+      return _WhiteCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'لا توجد مركبات مرتبطة بحسابك حتى الآن.',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'أضيفي مركبة أولاً حتى نتمكن من بدء جلسة الوقوف على المركبة الصحيحة.',
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _openVehicleForm,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('إضافة مركبة جديدة'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (var index = 0; index < _vehicles.length; index++) ...[
+          _VehicleChoiceCard(
+            vehicle: _vehicles[index],
+            isSelected: _selectedVehicleIndex == index,
+            onTap: () {
+              setState(() {
+                _selectedVehicleIndex = index;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+        OutlinedButton.icon(
+          onPressed: _openVehicleForm,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 54),
+            side: const BorderSide(color: Color(0xFF0F766E)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('إضافة مركبة جديدة'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _loadVehicles() async {
+    setState(() {
+      _isLoadingVehicles = true;
+      _loadError = null;
+    });
+
+    try {
+      final vehicles = await _vehicleService.getVehicles();
+      if (!mounted) return;
+      setState(() {
+        _vehicles = vehicles;
+        _selectedVehicleIndex = vehicles.isEmpty ? 0 : _safeSelectedIndex(vehicles.length);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingVehicles = false;
+      });
+    }
+  }
+
+  int _safeSelectedIndex(int length) {
+    if (_selectedVehicleIndex >= length) {
+      return 0;
+    }
+    return _selectedVehicleIndex;
   }
 
   Future<void> _openVehicleForm() async {
@@ -227,26 +316,49 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
       return;
     }
 
-    setState(() {
-      _vehicles.add(
-        _VehicleItem(
-          plateNumber: result.plateNumber,
-          model: result.vehicleType,
-          color: result.color,
-          tag: 'مركبة مضافة',
+    try {
+      await _vehicleService.addVehicle(
+        licensePlate: result.plateNumber,
+        vehicleType: result.vehicleType,
+        color: result.color,
+      );
+
+      await _loadVehicles();
+      if (!mounted) return;
+
+      final newIndex = _vehicles.indexWhere(
+        (vehicle) => vehicle.plateNumber == result.plateNumber,
+      );
+
+      setState(() {
+        _selectedVehicleIndex = newIndex == -1 ? 0 : newIndex;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
       );
-      _selectedVehicleIndex = _vehicles.length - 1;
-    });
+    }
   }
 
   Future<void> _goNext() async {
+    setState(() {
+      _submitError = null;
+    });
+
+    if (_currentStep == 0 && _vehicles.isEmpty) {
+      setState(() {
+        _submitError = 'يجب إضافة مركبة قبل بدء جلسة الوقوف.';
+      });
+      return;
+    }
+
     if (_currentStep == 1 && !_useCurrentLocation && _qrController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('أدخل رمز QR أو كود الموقف قبل المتابعة.'),
-        ),
-      );
+      setState(() {
+        _submitError = 'أدخلي رمز QR أو كود الموقف قبل المتابعة.';
+      });
       return;
     }
 
@@ -257,33 +369,55 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
       return;
     }
 
+    if (_vehicles.isEmpty) {
+      setState(() {
+        _submitError = 'لا توجد مركبة صالحة لبدء الجلسة.';
+      });
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-
-    if (!mounted) {
-      return;
-    }
-
-    final now = DateTime.now();
-    final duration = Duration(minutes: _selectedDurationMinutes);
     final selectedVehicle = _vehicles[_selectedVehicleIndex];
-    final selectedPaymentMethod = _paymentMethods[_selectedPaymentIndex];
+    final coordinates = _selectedCoordinates;
+    final now = DateTime.now();
 
-    Navigator.of(context).pop(
-      DriverParkingSession(
-        vehiclePlateNumber: selectedVehicle.plateNumber,
-        vehicleModel: selectedVehicle.model,
-        locationLabel: _locationLabel,
-        paymentMethodLabel: selectedPaymentMethod.title,
+    try {
+      await _parkingService.startSession(
+        vehicleId: selectedVehicle.id,
         durationMinutes: _selectedDurationMinutes,
-        totalPrice: _priceForDuration(_selectedDurationMinutes),
-        startedAt: now,
-        endsAt: now.add(duration),
-      ),
-    );
+        lat: coordinates.$1,
+        lng: coordinates.$2,
+      );
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop(
+        DriverParkingSession(
+          vehicleId: selectedVehicle.id,
+          vehiclePlateNumber: selectedVehicle.plateNumber,
+          vehicleModel: selectedVehicle.vehicleType,
+          locationLabel: _locationLabel,
+          paymentMethodLabel: 'المحفظة',
+          durationMinutes: _selectedDurationMinutes,
+          totalPrice: _priceForDuration(_selectedDurationMinutes),
+          startedAt: now,
+          endsAt: now.add(Duration(minutes: _selectedDurationMinutes)),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _submitError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
   }
 
   void _goBack() {
@@ -294,52 +428,126 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
 
     setState(() {
       _currentStep -= 1;
+      _submitError = null;
     });
   }
 
-  int _priceForDuration(int minutes) {
-    return minutes ~/ 30;
+  (double, double) get _selectedCoordinates {
+    return (_fallbackLatitude, _fallbackLongitude);
+  }
+
+  String get _locationLabel {
+    if (_useCurrentLocation) {
+      return 'الموقع الحالي';
+    }
+
+    final qr = _qrController.text.trim();
+    return qr.isEmpty ? 'رمز QR' : 'رمز QR: $qr';
+  }
+
+  int _priceForDuration(int minutes) => minutes ~/ 30;
+
+  String _durationLabel(int minutes) {
+    if (minutes < 60) {
+      return '$minutes دقيقة';
+    }
+
+    final hours = minutes ~/ 60;
+    final extraMinutes = minutes % 60;
+    final hourLabel = hours == 1 ? 'ساعة' : '$hours ساعات';
+    if (extraMinutes == 0) {
+      return hourLabel;
+    }
+    return '$hourLabel و $extraMinutes دقيقة';
   }
 }
 
-class _VehicleStep extends StatelessWidget {
-  const _VehicleStep({
-    required this.vehicles,
-    required this.selectedIndex,
-    required this.onSelected,
-    required this.onAddVehicle,
+class _VehicleChoiceCard extends StatelessWidget {
+  const _VehicleChoiceCard({
+    required this.vehicle,
+    required this.isSelected,
+    required this.onTap,
   });
 
-  final List<_VehicleItem> vehicles;
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
-  final VoidCallback onAddVehicle;
+  final DriverVehicle vehicle;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (var index = 0; index < vehicles.length; index++) ...[
-          _VehicleChoiceCard(
-            vehicle: vehicles[index],
-            isSelected: selectedIndex == index,
-            onTap: () => onSelected(index),
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Ink(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFE7E1D6),
+            width: isSelected ? 2 : 1,
           ),
-          const SizedBox(height: 12),
-        ],
-        OutlinedButton.icon(
-          onPressed: onAddVehicle,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 54),
-            side: const BorderSide(color: Color(0xFF0F766E)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('إضافة مركبة جديدة'),
         ),
-      ],
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7F2EF),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.directions_car_outlined,
+                color: Color(0xFF0F766E),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    vehicle.plateNumber,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${vehicle.vehicleType} • ${vehicle.color ?? 'غير محدد'}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF5B6472),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2EEE5),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      vehicle.isDefault ? 'المركبة الأساسية' : 'مركبة مسجلة',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: const Color(0xFF6B7280),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFB8B2A7),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -363,7 +571,7 @@ class _LocationStep extends StatelessWidget {
         children: [
           _ChoiceTile(
             title: 'استخدام موقعي الحالي',
-            subtitle: 'قف في مكان الوقوف واسمح للتطبيق بالوصول إلى الموقع.',
+            subtitle: 'الربط الحالي يرسل إحداثيات ثابتة مؤقتاً إلى الباك إلى أن نربط GPS الحقيقي.',
             icon: Icons.my_location_rounded,
             selected: useCurrentLocation,
             onTap: () => onLocationModeChanged(true),
@@ -371,7 +579,7 @@ class _LocationStep extends StatelessWidget {
           const SizedBox(height: 12),
           _ChoiceTile(
             title: 'استخدام رمز QR',
-            subtitle: 'إذا لم ترغب في تفعيل الموقع، أدخل رمز QR الموجود في مكان الوقوف.',
+            subtitle: 'يمكنك إدخال رمز الموقف هنا، لكن الباك حالياً لا يخزن الرمز نفسه بل يعتمد على الإحداثيات فقط.',
             icon: Icons.qr_code_2_rounded,
             selected: !useCurrentLocation,
             onTap: () => onLocationModeChanged(false),
@@ -379,7 +587,7 @@ class _LocationStep extends StatelessWidget {
           const SizedBox(height: 18),
           if (useCurrentLocation)
             const _InfoBox(
-              text: 'سيتم استخدام موقعك الحالي لتسجيل مكان الجلسة وإظهاره لاحقاً على الخريطة.',
+              text: 'نستخدم إحداثيات الخليل مؤقتاً حتى نربط الموقع الفعلي من الجهاز.',
             )
           else
             TextField(
@@ -411,7 +619,9 @@ class _DurationStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final durationOption = _DurationOption(minutes: minutes, price: price);
+    final primaryLabel = minutes < 60 ? '$minutes دقيقة' : '${minutes ~/ 60 == 1 ? 'ساعة' : '${minutes ~/ 60} ساعات'}';
+    final extraMinutes = minutes % 60;
+    final secondaryLabel = extraMinutes == 0 || minutes < 60 ? null : 'و $extraMinutes دقيقة';
     final progress = (minutes / 180).clamp(0.2, 1.0);
 
     return _WhiteCard(
@@ -442,7 +652,7 @@ class _DurationStep extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          durationOption.primaryLabel,
+                          primaryLabel,
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -452,10 +662,10 @@ class _DurationStep extends StatelessWidget {
                             fontSize: 22,
                           ),
                         ),
-                        if (durationOption.secondaryLabel != null) ...[
+                        if (secondaryLabel != null) ...[
                           const SizedBox(height: 2),
                           Text(
-                            durationOption.secondaryLabel!,
+                            secondaryLabel,
                             textAlign: TextAlign.center,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -508,7 +718,7 @@ class _DurationStep extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           const _InfoBox(
-            text: 'كل 30 دقيقة = 1 شيكل، ويمكنك تمديد الوقت لاحقاً بعد تأكيد الدفع.',
+            text: 'الباك يحسب 1 شيكل لكل 30 دقيقة ويخصم المبلغ من المحفظة عند التأكيد.',
           ),
         ],
       ),
@@ -519,156 +729,109 @@ class _DurationStep extends StatelessWidget {
 class _PaymentStep extends StatelessWidget {
   const _PaymentStep({
     required this.vehicle,
-    required this.duration,
+    required this.durationLabel,
+    required this.totalPrice,
     required this.locationLabel,
-    required this.methods,
-    required this.selectedMethodIndex,
-    required this.onPaymentSelected,
   });
 
-  final _VehicleItem vehicle;
-  final _DurationOption duration;
+  final DriverVehicle vehicle;
+  final String durationLabel;
+  final int totalPrice;
   final String locationLabel;
-  final List<_PaymentMethod> methods;
-  final int selectedMethodIndex;
-  final ValueChanged<int> onPaymentSelected;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       children: [
         _WhiteCard(
           child: Column(
             children: [
               _SummaryRow(label: 'المركبة', value: vehicle.plateNumber),
-              _SummaryRow(label: 'النوع', value: vehicle.model),
-              _SummaryRow(label: 'اللون', value: vehicle.color),
+              _SummaryRow(label: 'النوع', value: vehicle.vehicleType),
+              _SummaryRow(label: 'اللون', value: vehicle.color ?? 'غير محدد'),
               _SummaryRow(label: 'الموقع', value: locationLabel),
-              _SummaryRow(label: 'المدة', value: duration.label),
-              _SummaryRow(label: 'المبلغ', value: '${duration.price} شيكل'),
+              _SummaryRow(label: 'المدة', value: durationLabel),
+              _SummaryRow(label: 'المبلغ', value: '$totalPrice شيكل'),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            'طريقة الدفع',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+        _ChoiceTile(
+          title: 'المحفظة',
+          subtitle: 'هذه هي طريقة الدفع الفعلية المدعومة حالياً من الباك.',
+          icon: Icons.account_balance_wallet_outlined,
+          selected: true,
+          onTap: _noop,
         ),
-        const SizedBox(height: 10),
-        for (var index = 0; index < methods.length; index++) ...[
-          _ChoiceTile(
-            title: methods[index].title,
-            subtitle: methods[index].subtitle,
-            icon: index == 0
-                ? Icons.account_balance_wallet_outlined
-                : index == 1
-                    ? Icons.credit_card_rounded
-                    : Icons.phone_android_rounded,
-            selected: selectedMethodIndex == index,
-            onTap: () => onPaymentSelected(index),
-          ),
-          const SizedBox(height: 10),
-        ],
       ],
     );
   }
 }
 
-class _VehicleChoiceCard extends StatelessWidget {
-  const _VehicleChoiceCard({
-    required this.vehicle,
-    required this.isSelected,
-    required this.onTap,
-  });
+class _FlowMiniProgress extends StatelessWidget {
+  const _FlowMiniProgress({required this.currentStep});
 
-  final _VehicleItem vehicle;
-  final bool isSelected;
-  final VoidCallback onTap;
+  final int currentStep;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    const labels = ['مركبة', 'موقع', 'مدة', 'دفع'];
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Ink(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFE7E1D6),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
+    return Row(
+      children: List.generate(labels.length * 2 - 1, (index) {
+        if (index.isOdd) {
+          final lineIndex = index ~/ 2;
+          final isDone = currentStep > lineIndex;
+          return Expanded(
+            child: Container(
+              height: 1.5,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              color: isDone ? const Color(0xFF0F766E) : const Color(0xFFD8D2C7),
+            ),
+          );
+        }
+
+        final stepIndex = index ~/ 2;
+        final isActive = currentStep == stepIndex;
+        final isDone = currentStep > stepIndex;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
-                color: const Color(0xFFE7F2EF),
-                borderRadius: BorderRadius.circular(16),
+                color: isActive || isDone ? const Color(0xFF0F766E) : const Color(0xFFE7E1D6),
+                shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.directions_car_outlined,
-                color: Color(0xFF0F766E),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    vehicle.plateNumber,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${vehicle.model} • ${vehicle.color}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF5B6472),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF2EEE5),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      vehicle.tag,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: const Color(0xFF6B7280),
-                        fontWeight: FontWeight.w700,
+              alignment: Alignment.center,
+              child: isDone
+                  ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                  : Text(
+                      '${stepIndex + 1}',
+                      style: TextStyle(
+                        color: isActive ? Colors.white : const Color(0xFF6B7280),
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ),
-                ],
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: 44,
+              child: Text(
+                labels[stepIndex],
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontSize: 10,
+                      color: isActive ? const Color(0xFF0F766E) : const Color(0xFF8A8F98),
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    ),
               ),
             ),
-            const SizedBox(width: 10),
-            Icon(
-              isSelected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
-              color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFB8B2A7),
-            ),
           ],
-        ),
-      ),
+        );
+      }),
     );
   }
 }
@@ -728,84 +891,12 @@ class _ChoiceTile extends StatelessWidget {
               ),
             ),
             Icon(
-              selected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
+              selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
               color: selected ? const Color(0xFF0F766E) : const Color(0xFFB8B2A7),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _FlowMiniProgress extends StatelessWidget {
-  const _FlowMiniProgress({required this.currentStep});
-
-  final int currentStep;
-
-  @override
-  Widget build(BuildContext context) {
-    const labels = ['مركبة', 'موقع', 'مدة', 'دفع'];
-
-    return Row(
-      children: List.generate(labels.length * 2 - 1, (index) {
-        if (index.isOdd) {
-          final lineIndex = index ~/ 2;
-          final isDone = currentStep > lineIndex;
-          return Expanded(
-            child: Container(
-              height: 1.5,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              color: isDone ? const Color(0xFF0F766E) : const Color(0xFFD8D2C7),
-            ),
-          );
-        }
-
-        final stepIndex = index ~/ 2;
-        final isActive = currentStep == stepIndex;
-        final isDone = currentStep > stepIndex;
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: isActive || isDone
-                    ? const Color(0xFF0F766E)
-                    : const Color(0xFFE7E1D6),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: isDone
-                  ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-                  : Text(
-                      '${stepIndex + 1}',
-                      style: TextStyle(
-                        color: isActive ? Colors.white : const Color(0xFF6B7280),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: 44,
-              child: Text(
-                labels[stepIndex],
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      fontSize: 10,
-                      color: isActive ? const Color(0xFF0F766E) : const Color(0xFF8A8F98),
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    ),
-              ),
-            ),
-          ],
-        );
-      }),
     );
   }
 }
@@ -888,65 +979,29 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _VehicleItem {
-  const _VehicleItem({
-    required this.plateNumber,
-    required this.model,
-    required this.color,
-    required this.tag,
-  });
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
 
-  final String plateNumber;
-  final String model;
-  final String color;
-  final String tag;
-}
+  final String message;
 
-class _DurationOption {
-  const _DurationOption({
-    required this.minutes,
-    required this.price,
-  });
-
-  final int minutes;
-  final int price;
-
-  String get label {
-    if (secondaryLabel == null) {
-      return primaryLabel;
-    }
-    return '$primaryLabel ${secondaryLabel!}';
-  }
-
-  String get primaryLabel {
-    if (minutes < 60) {
-      return '$minutes دقيقة';
-    }
-
-    final hours = minutes ~/ 60;
-    return hours == 1 ? 'ساعة' : '$hours ساعات';
-  }
-
-  String? get secondaryLabel {
-    if (minutes < 60) {
-      return null;
-    }
-
-    final extraMinutes = minutes % 60;
-    if (extraMinutes == 0) {
-      return null;
-    }
-
-    return 'و $extraMinutes دقيقة';
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFE7E5),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF3B7AF)),
+      ),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF7A2E24),
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
   }
 }
 
-class _PaymentMethod {
-  const _PaymentMethod({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
-}
+void _noop() {}
