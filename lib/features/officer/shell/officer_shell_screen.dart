@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/officer/check/officer_check_vehicle_screen.dart';
+
 class OfficerShellScreen extends StatelessWidget {
   const OfficerShellScreen({super.key});
 
@@ -9,10 +11,10 @@ class OfficerShellScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('واجهة موظف التفتيش'),
+        title: const Text('الرئيسية'),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
           Container(
             padding: const EdgeInsets.all(22),
@@ -79,30 +81,14 @@ class OfficerShellScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'الإجراءات السريعة',
+            'الإجراء الرئيسي',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: const [
-              Expanded(
-                child: _OfficerQuickActionCard(
-                  icon: Icons.qr_code_scanner_rounded,
-                  title: 'فحص مركبة',
-                  subtitle: 'فحص اللوحة مباشرة',
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _OfficerQuickActionCard(
-                  icon: Icons.keyboard_alt_outlined,
-                  title: 'إدخال يدوي',
-                  subtitle: 'كتابة رقم اللوحة',
-                ),
-              ),
-            ],
+          _OfficerPrimaryActionCard(
+            onTap: () => _openCheckOptions(context),
           ),
           const SizedBox(height: 18),
           Container(
@@ -133,7 +119,7 @@ class OfficerShellScreen extends StatelessWidget {
                     Expanded(
                       child: _OfficerStatCard(
                         value: '4',
-                        label: 'مخالفات صادرة',
+                        label: 'مخالفة صادرة',
                       ),
                     ),
                   ],
@@ -165,7 +151,7 @@ class OfficerShellScreen extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    'هذه واجهة مبدئية لتطبيق الشرطي. الخطوة التالية ستكون شاشة فحص المركبة ونتيجة الحالة ثم إصدار المخالفة.',
+                    'من هنا يمكنك بدء فحص المركبة، ثم اختيار الفحص عبر إدخال رقم اللوحة أو عبر إدخال صورة اللوحة.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFF5B6472),
                       height: 1.5,
@@ -179,62 +165,221 @@ class OfficerShellScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openCheckOptions(BuildContext context) async {
+    final option = await showDialog<_CheckEntryOption>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 26),
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'اختيار طريقة الفحص',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _CheckOptionTile(
+                        icon: Icons.photo_camera_back_outlined,
+                        title: 'صورة اللوحة',
+                        subtitle: 'اختيار صورة للفحص',
+                        onTap: () => Navigator.of(context).pop(_CheckEntryOption.scan),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _CheckOptionTile(
+                        icon: Icons.keyboard_alt_outlined,
+                        title: 'رقم اللوحة',
+                        subtitle: 'إدخال يدوي مباشر',
+                        onTap: () => Navigator.of(context).pop(_CheckEntryOption.manual),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (option == null || !context.mounted) {
+      return;
+    }
+
+    _openCheckVehicle(context, initialScanMode: option == _CheckEntryOption.scan);
+  }
+
+  void _openCheckVehicle(BuildContext context, {bool initialScanMode = false}) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OfficerCheckVehicleScreen(
+          initialScanMode: initialScanMode,
+        ),
+      ),
+    );
+  }
 }
 
-class _OfficerQuickActionCard extends StatelessWidget {
-  const _OfficerQuickActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
+class _OfficerPrimaryActionCard extends StatelessWidget {
+  const _OfficerPrimaryActionCard({git status
+
+  required this.onTap,
   });
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE7F2EF),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF0F766E),
-            ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(28),
+      child: Ink(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF0F766E),
+              Color(0xFF17867D),
+            ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.directions_car_filled_outlined,
+                color: Colors.white,
+                size: 30,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: const Color(0xFF5B6472),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'فحص مركبة',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'ابدأ الفحص ثم اختر بين إدخال رقم اللوحة أو إدخال صورة اللوحة.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              color: Colors.white,
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _CheckOptionTile extends StatelessWidget {
+  const _CheckOptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F7F3),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE7E1D6)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7F2EF),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                icon,
+                color: const Color(0xFF0F766E),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF5B6472),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _CheckEntryOption {
+  scan,
+  manual,
 }
 
 class _OfficerStatCard extends StatelessWidget {

@@ -410,7 +410,9 @@ class _StartParkingScreenState extends State<StartParkingScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _submitError = error.toString().replaceFirst('Exception: ', '');
+        _submitError = error is ParkingException
+            ? error.message
+            : error.toString().replaceFirst('Exception: ', '');
       });
     } finally {
       if (!mounted) return;
@@ -751,17 +753,14 @@ class _PaymentStep extends StatelessWidget {
               _SummaryRow(label: 'اللون', value: vehicle.color ?? 'غير محدد'),
               _SummaryRow(label: 'الموقع', value: locationLabel),
               _SummaryRow(label: 'المدة', value: durationLabel),
+              const _SummaryRow(label: 'طريقة الدفع', value: 'المحفظة'),
               _SummaryRow(label: 'المبلغ', value: '$totalPrice شيكل'),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        _ChoiceTile(
-          title: 'المحفظة',
-          subtitle: 'هذه هي طريقة الدفع الفعلية المدعومة حالياً من الباك.',
-          icon: Icons.account_balance_wallet_outlined,
-          selected: true,
-          onTap: _noop,
+        const _InfoBox(
+          text: 'سيتم خصم المبلغ من المحفظة مباشرة عند تأكيد بدء الجلسة. لا توجد طريقة دفع أخرى مدعومة حالياً.',
         ),
       ],
     );

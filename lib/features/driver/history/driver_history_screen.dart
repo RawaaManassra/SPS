@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/driver/history/models/driver_activity_item.dart';
+import 'package:flut/features/driver/history/services/activity_service.dart';
+
 class DriverHistoryScreen extends StatefulWidget {
   const DriverHistoryScreen({super.key});
 
@@ -8,84 +11,29 @@ class DriverHistoryScreen extends StatefulWidget {
 }
 
 class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
+  final _activityService = ActivityService();
+
   int _selectedFilterIndex = 0;
+  bool _isLoading = true;
+  List<DriverActivityItem> _items = const [];
 
-  final List<_HistoryItem> _items = const [
-    _HistoryItem(
-      type: _HistoryType.session,
-      title: 'جلسة وقوف مكتملة',
-      subtitle: 'المركبة 24-381-15 • باب الزاوية',
-      trailing: 'اليوم',
-      amount: '1 شيكل',
-      status: 'مدفوعة',
-      details: {
-        'نوع العملية': 'جلسة وقوف',
-        'المركبة': '24-381-15',
-        'الموقع': 'باب الزاوية',
-        'المدة': '30 دقيقة',
-        'طريقة الدفع': 'المحفظة',
-        'المبلغ': '1 شيكل',
-      },
-    ),
-    _HistoryItem(
-      type: _HistoryType.wallet,
-      title: 'شحن المحفظة',
-      subtitle: 'تمت إضافة رصيد جديد إلى المحفظة',
-      trailing: 'اليوم',
-      amount: '+20 شيكل',
-      status: 'ناجحة',
-      details: {
-        'نوع العملية': 'شحن محفظة',
-        'وسيلة الدفع': 'Jawwal Pay',
-        'المبلغ': '+20 شيكل',
-        'الحالة': 'ناجحة',
-      },
-    ),
-    _HistoryItem(
-      type: _HistoryType.violation,
-      title: 'مخالفة وقوف',
-      subtitle: 'المركبة 31-662-08 • منطقة البلدية',
-      trailing: 'أمس',
-      amount: '15 شيكل',
-      status: 'بانتظار الدفع',
-      details: {
-        'نوع العملية': 'مخالفة',
-        'المركبة': '31-662-08',
-        'الموقع': 'منطقة البلدية',
-        'السبب': 'انتهاء مدة الوقوف',
-        'المبلغ': '15 شيكل',
-        'الحالة': 'بانتظار الدفع',
-      },
-    ),
-    _HistoryItem(
-      type: _HistoryType.session,
-      title: 'جلسة وقوف مكتملة',
-      subtitle: 'المركبة 31-662-08 • عين سارة',
-      trailing: '28 نيسان',
-      amount: '3 شيكل',
-      status: 'مدفوعة',
-      details: {
-        'نوع العملية': 'جلسة وقوف',
-        'المركبة': '31-662-08',
-        'الموقع': 'عين سارة',
-        'المدة': 'ساعة و 30 دقيقة',
-        'طريقة الدفع': 'بطاقة بنكية',
-        'المبلغ': '3 شيكل',
-      },
-    ),
-  ];
-
-  List<_HistoryItem> get _filteredItems {
+  List<DriverActivityItem> get _filteredItems {
     switch (_selectedFilterIndex) {
       case 1:
-        return _items.where((item) => item.type == _HistoryType.session).toList();
+        return _items.where((item) => item.isSession).toList();
       case 2:
-        return _items.where((item) => item.type == _HistoryType.wallet).toList();
+        return _items.where((item) => item.isTransaction).toList();
       case 3:
-        return _items.where((item) => item.type == _HistoryType.violation).toList();
+        return _items.where((item) => item.isFine).toList();
       default:
         return _items;
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActivity();
   }
 
   @override
@@ -93,65 +41,99 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
     final theme = Theme.of(context);
     final items = _filteredItems;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
-      children: [
-        Text(
-          'سجل النشاط',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w800,
+    return RefreshIndicator(
+      onRefresh: _loadActivity,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+        children: [
+          Text(
+            'سجل النشاط',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'راجع جلسات الوقوف والمدفوعات والمخالفات السابقة من مكان واحد.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF5B6472),
+          const SizedBox(height: 8),
+          Text(
+            'راجعي جلسات الوقوف والمدفوعات والمخالفات السابقة من مكان واحد.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF5B6472),
+            ),
           ),
-        ),
-        const SizedBox(height: 18),
-        SizedBox(
-          height: 42,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: List.generate(_historyFilters.length, (index) {
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 42,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: List.generate(_historyFilters.length, (index) {
+                return Padding(
+                  padding: EdgeInsets.only(left: index == _historyFilters.length - 1 ? 0 : 8),
+                  child: _HistoryFilterChip(
+                    label: _historyFilters[index],
+                    selected: _selectedFilterIndex == index,
+                    onTap: () {
+                      setState(() {
+                        _selectedFilterIndex = index;
+                      });
+                    },
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (items.isEmpty)
+            const _EmptyHistoryState()
+          else
+            ...List.generate(items.length, (index) {
+              final item = items[index];
               return Padding(
-                padding: EdgeInsets.only(left: index == _historyFilters.length - 1 ? 0 : 8),
-                child: _HistoryFilterChip(
-                  label: _historyFilters[index],
-                  selected: _selectedFilterIndex == index,
+                padding: EdgeInsets.only(bottom: index == items.length - 1 ? 0 : 12),
+                child: HistoryItemCard(
+                  item: item,
                   onTap: () {
-                    setState(() {
-                      _selectedFilterIndex = index;
-                    });
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DriverHistoryDetailsScreen(item: item),
+                      ),
+                    );
                   },
                 ),
               );
             }),
-          ),
-        ),
-        const SizedBox(height: 18),
-        if (items.isEmpty)
-          const _EmptyHistoryState()
-        else
-          ...List.generate(items.length, (index) {
-            final item = items[index];
-            return Padding(
-              padding: EdgeInsets.only(bottom: index == items.length - 1 ? 0 : 12),
-              child: HistoryItemCard(
-                item: item,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => DriverHistoryDetailsScreen(item: item),
-                    ),
-                  );
-                },
-              ),
-            );
-          }),
-      ],
+        ],
+      ),
     );
+  }
+
+  Future<void> _loadActivity() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final activity = await _activityService.getActivity();
+      if (!mounted) return;
+      setState(() {
+        _items = activity;
+      });
+    } on ActivityException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 }
 
@@ -161,11 +143,12 @@ class DriverHistoryDetailsScreen extends StatelessWidget {
     required this.item,
   });
 
-  final _HistoryItem item;
+  final DriverActivityItem item;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final detailEntries = _detailEntries(item);
 
     return Scaffold(
       appBar: AppBar(
@@ -189,10 +172,10 @@ class DriverHistoryDetailsScreen extends StatelessWidget {
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: item.color.withValues(alpha: 0.12),
+                        color: _itemColor(item).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: Icon(item.icon, color: item.color),
+                      child: Icon(_itemIcon(item), color: _itemColor(item)),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -200,14 +183,14 @@ class DriverHistoryDetailsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            item.title,
+                            _itemTitle(item),
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            item.subtitle,
+                            _itemSubtitle(item),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: const Color(0xFF5B6472),
                             ),
@@ -218,7 +201,7 @@ class DriverHistoryDetailsScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 18),
-                ...item.details.entries.map(
+                ...detailEntries.entries.map(
                   (entry) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _HistoryDetailRow(
@@ -243,10 +226,10 @@ class DriverHistoryDetailsScreen extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        item.status,
+                        _statusLabel(item),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w800,
-                          color: item.statusColor,
+                          color: _statusColor(item),
                         ),
                       ),
                     ],
@@ -268,7 +251,7 @@ class HistoryItemCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final _HistoryItem item;
+  final DriverActivityItem item;
   final VoidCallback onTap;
 
   @override
@@ -290,10 +273,10 @@ class HistoryItemCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: item.color.withValues(alpha: 0.12),
+                color: _itemColor(item).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(item.icon, color: item.color),
+              child: Icon(_itemIcon(item), color: _itemColor(item)),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -304,14 +287,14 @@ class HistoryItemCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          item.title,
+                          _itemTitle(item),
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
                       Text(
-                        item.trailing,
+                        _dateLabel(item.date),
                         style: theme.textTheme.labelMedium?.copyWith(
                           color: const Color(0xFF6B7280),
                         ),
@@ -320,7 +303,7 @@ class HistoryItemCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.subtitle,
+                    _itemSubtitle(item),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: const Color(0xFF5B6472),
                     ),
@@ -329,7 +312,7 @@ class HistoryItemCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        item.amount,
+                        _amountLabel(item),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -342,9 +325,9 @@ class HistoryItemCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          item.status,
+                          _statusLabel(item),
                           style: theme.textTheme.labelMedium?.copyWith(
-                            color: item.statusColor,
+                            color: _statusColor(item),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -480,59 +463,147 @@ class _HistoryDetailRow extends StatelessWidget {
   }
 }
 
-enum _HistoryType {
-  session,
-  wallet,
-  violation,
+IconData _itemIcon(DriverActivityItem item) {
+  if (item.isSession) return Icons.local_parking_outlined;
+  if (item.isFine) return Icons.gavel_outlined;
+  return Icons.account_balance_wallet_outlined;
 }
 
-class _HistoryItem {
-  const _HistoryItem({
-    required this.type,
-    required this.title,
-    required this.subtitle,
-    required this.trailing,
-    required this.amount,
-    required this.status,
-    required this.details,
-  });
+Color _itemColor(DriverActivityItem item) {
+  if (item.isSession) return const Color(0xFF0F766E);
+  if (item.isFine) return const Color(0xFFC8922E);
+  return const Color(0xFF2563EB);
+}
 
-  final _HistoryType type;
-  final String title;
-  final String subtitle;
-  final String trailing;
-  final String amount;
-  final String status;
-  final Map<String, String> details;
+String _itemTitle(DriverActivityItem item) {
+  if (item.isSession) return 'جلسة وقوف';
+  if (item.isFine) return item.violationName?.trim().isNotEmpty == true ? item.violationName! : 'مخالفة';
 
-  IconData get icon {
-    switch (type) {
-      case _HistoryType.session:
-        return Icons.local_parking_outlined;
-      case _HistoryType.wallet:
-        return Icons.account_balance_wallet_outlined;
-      case _HistoryType.violation:
-        return Icons.gavel_outlined;
+  switch (item.transactionType) {
+    case 'top_up':
+      return 'شحن المحفظة';
+    case 'session_start':
+      return 'دفع بدء الجلسة';
+    case 'session_extension':
+      return 'دفع تمديد الجلسة';
+    case 'refund':
+      return 'استرجاع رصيد';
+    default:
+      return 'عملية محفظة';
+  }
+}
+
+String _itemSubtitle(DriverActivityItem item) {
+  if (item.isSession) {
+    final plate = item.licensePlate ?? 'غير متوفر';
+    final duration = item.durationMinutes == null ? '' : ' • ${item.durationMinutes} دقيقة';
+    return 'المركبة $plate$duration';
+  }
+
+  if (item.isFine) {
+    final plate = item.licensePlate ?? 'غير متوفر';
+    return 'المركبة $plate';
+  }
+
+  switch (item.transactionType) {
+    case 'top_up':
+      return 'تمت إضافة رصيد إلى المحفظة';
+    case 'session_start':
+      return 'تم خصم رسوم بدء جلسة الوقوف';
+    case 'session_extension':
+      return 'تم خصم رسوم تمديد الجلسة';
+    case 'refund':
+      return 'تم استرجاع مبلغ إلى المحفظة';
+    default:
+      return 'عملية مالية مرتبطة بالمحفظة';
+  }
+}
+
+String _amountLabel(DriverActivityItem item) {
+  final amount = item.amount ?? 0;
+  if (item.isTransaction && item.transactionType == 'top_up') {
+    return '+${amount.toStringAsFixed(0)} شيكل';
+  }
+  if (item.isTransaction && item.transactionType == 'refund') {
+    return '+${amount.toStringAsFixed(0)} شيكل';
+  }
+  return '${amount.toStringAsFixed(0)} شيكل';
+}
+
+String _statusLabel(DriverActivityItem item) {
+  if (item.isSession) {
+    switch (item.status) {
+      case 'active':
+        return 'نشطة';
+      case 'ended':
+        return 'منتهية';
+      default:
+        return item.status;
     }
   }
 
-  Color get color {
-    switch (type) {
-      case _HistoryType.session:
-        return const Color(0xFF0F766E);
-      case _HistoryType.wallet:
-        return const Color(0xFF2563EB);
-      case _HistoryType.violation:
-        return const Color(0xFFC8922E);
+  if (item.isFine) {
+    switch (item.status) {
+      case 'paid':
+        return 'مدفوعة';
+      case 'unpaid':
+        return 'بانتظار الدفع';
+      default:
+        return item.status;
     }
   }
 
-  Color get statusColor {
-    if (status == 'بانتظار الدفع') {
-      return const Color(0xFFD63C31);
-    }
-    return const Color(0xFF0F766E);
+  return 'ناجحة';
+}
+
+Color _statusColor(DriverActivityItem item) {
+  final status = _statusLabel(item);
+  if (status == 'بانتظار الدفع') return const Color(0xFFD63C31);
+  if (status == 'نشطة') return const Color(0xFF2563EB);
+  return const Color(0xFF0F766E);
+}
+
+String _dateLabel(DateTime? dateTime) {
+  if (dateTime == null) return 'الآن';
+
+  final local = dateTime.toLocal();
+  final now = DateTime.now();
+  final diff = now.difference(local);
+
+  if (diff.inDays == 0) return 'اليوم';
+  if (diff.inDays == 1) return 'أمس';
+  return '${local.day}/${local.month}/${local.year}';
+}
+
+Map<String, String> _detailEntries(DriverActivityItem item) {
+  if (item.isSession) {
+    return {
+      'نوع العملية': 'جلسة وقوف',
+      'المركبة': item.licensePlate ?? 'غير متوفر',
+      'المدة': item.durationMinutes == null ? 'غير متوفرة' : '${item.durationMinutes} دقيقة',
+      'الموقع': '${item.latitude?.toStringAsFixed(4) ?? '-'}, ${item.longitude?.toStringAsFixed(4) ?? '-'}',
+      'المبلغ': _amountLabel(item),
+      'التاريخ': item.date?.toLocal().toString() ?? 'غير متوفر',
+    };
   }
+
+  if (item.isFine) {
+    return {
+      'نوع العملية': 'مخالفة',
+      'المركبة': item.licensePlate ?? 'غير متوفر',
+      'نوع المخالفة': item.violationName ?? 'غير متوفر',
+      'الموقع': '${item.latitude?.toStringAsFixed(4) ?? '-'}, ${item.longitude?.toStringAsFixed(4) ?? '-'}',
+      'المبلغ': _amountLabel(item),
+      'التاريخ': item.date?.toLocal().toString() ?? 'غير متوفر',
+    };
+  }
+
+  return {
+    'نوع العملية': _itemTitle(item),
+    'نوع الحركة': item.transactionType ?? 'غير متوفر',
+    'المبلغ': _amountLabel(item),
+    'التاريخ': item.date?.toLocal().toString() ?? 'غير متوفر',
+  };
 }
 
 const _historyFilters = [

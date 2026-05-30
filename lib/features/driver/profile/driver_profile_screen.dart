@@ -89,7 +89,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     width: 74,
                     height: 74,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.16),
+                      color: Colors.white.withOpacity(0.16),
                       borderRadius: BorderRadius.circular(22),
                     ),
                     child: const Icon(
@@ -114,7 +114,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                         Text(
                           'حساب سائق مفعل',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: Colors.white.withOpacity(0.9),
                           ),
                         ),
                       ],
@@ -126,7 +126,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
+                  color: Colors.white.withOpacity(0.14),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -138,7 +138,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'تم حفظ بيانات الهوية ورخصة القيادة في الحساب، ويمكنك استخدام خدمات الوقوف والمحفظة والمخالفات.',
+                        'تم توثيق بيانات الهوية ورخصة القيادة في الحساب، ويمكنك استخدام الوقوف والمحفظة والمخالفات من نفس التطبيق.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white,
                           height: 1.5,
@@ -158,7 +158,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             children: [
               _ProfileInfoRow(
                 icon: Icons.person_outline_rounded,
-                label: 'الاسم',
+                label: 'الاسم الكامل',
                 value: profile.fullName,
               ),
               _ProfileInfoRow(
@@ -335,7 +335,7 @@ class _ProfileSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: Colors.white.withOpacity(0.92),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(

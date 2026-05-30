@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -91,5 +92,31 @@ class ApiClient {
       body: body == null ? null : jsonEncode(body),
       encoding: utf8,
     );
+  }
+
+  Future<http.Response> postMultipartFile(
+    String url, {
+    required String fieldName,
+    required String filePath,
+    Map<String, String>? headers,
+    Map<String, String>? fields,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse(url));
+    request.headers.addAll(<String, String>{
+      ...?headers,
+    });
+    if (fields != null) {
+      request.fields.addAll(fields);
+    }
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        fieldName,
+        filePath,
+        filename: File(filePath).uri.pathSegments.last,
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    return http.Response.fromStream(streamedResponse);
   }
 }

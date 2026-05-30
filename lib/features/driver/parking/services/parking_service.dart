@@ -94,7 +94,7 @@ class ParkingService {
 
     final accessToken = await _readAccessToken();
     final response = await _apiClient.get(
-      ApiConstants.activeSessionsUrl,
+      ApiConstants.myActiveSessionUrl,
       headers: {
         'Authorization': 'Bearer $accessToken',
       },
@@ -104,27 +104,36 @@ class ParkingService {
       throw ParkingException(_readErrorMessage(response.body));
     }
 
-    final jsonBody = jsonDecode(response.body) as List<dynamic>;
+    final jsonBody = jsonDecode(response.body);
     final vehiclesById = {
       for (final vehicle in vehicles) vehicle.id: vehicle,
     };
 
-    Map<String, dynamic> matchingSession = const {};
-    for (final rawItem in jsonBody) {
-      final item = rawItem as Map<String, dynamic>;
-      final vehicleId = item['vehicle_id'] as int?;
-      final status = item['status'] as String? ?? '';
-      if (status == 'active' && vehicleId != null && vehiclesById.containsKey(vehicleId)) {
-        matchingSession = item;
-        break;
+    Map<String, dynamic>? matchingSession;
+    if (jsonBody is Map<String, dynamic>) {
+      if (jsonBody.containsKey('active_session')) {
+        final activeSession = jsonBody['active_session'];
+        if (activeSession == null) {
+          return null;
+        }
+        if (activeSession is Map<String, dynamic>) {
+          matchingSession = activeSession;
+        }
+      } else {
+        matchingSession = jsonBody;
       }
     }
 
-    if (matchingSession.isEmpty) {
+    if (matchingSession == null || matchingSession.isEmpty) {
+        return null;
+    }
+
+    final vehicleId = (matchingSession['vehicle_id'] as num?)?.toInt();
+    if (vehicleId == null || !vehiclesById.containsKey(vehicleId)) {
       return null;
     }
 
-    final vehicle = vehiclesById[matchingSession['vehicle_id'] as int]!;
+    final vehicle = vehiclesById[vehicleId]!;
     return DriverParkingSession.fromBackendJson(
       matchingSession,
       vehicle: vehicle,
@@ -180,4 +189,7 @@ class ParkingException implements Exception {
   const ParkingException(this.message);
 
   final String message;
+
+  @override
+  String toString() => message;
 }

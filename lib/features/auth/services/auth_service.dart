@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flut/core/network/api_client.dart';
@@ -20,13 +21,15 @@ class AuthService {
     required String nationalId,
     required String password,
   }) async {
-    final response = await _apiClient.postForm(
-      ApiConstants.loginUrl,
-      body: {
-        'username': nationalId,
-        'password': password,
-      },
-    );
+    final response = await _apiClient
+        .postForm(
+          ApiConstants.loginUrl,
+          body: {
+            'username': nationalId,
+            'password': password,
+          },
+        )
+        .timeout(const Duration(seconds: 20));
 
     final jsonBody = response.body.isEmpty
         ? <String, dynamic>{}
@@ -44,11 +47,39 @@ class AuthService {
     throw AuthException(_readErrorMessage(jsonBody));
   }
 
+  Future<String> getCurrentRole() async {
+    final accessToken = await _readAccessToken();
+    final response = await _apiClient
+        .get(
+          ApiConstants.authMeUrl,
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+
+    final jsonBody = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final role = (jsonBody['role'] ?? '').toString().trim();
+      if (role.isEmpty) {
+        throw const AuthException('تعذر تحديد نوع الحساب الحالي.');
+      }
+      return role;
+    }
+
+    throw AuthException(_readErrorMessage(jsonBody));
+  }
+
   Future<void> register(RegisterRequest request) async {
-    final response = await _apiClient.postJson(
-      ApiConstants.registerUrl,
-      body: request.toJson(),
-    );
+    final response = await _apiClient
+        .postJson(
+          ApiConstants.registerUrl,
+          body: request.toJson(),
+        )
+        .timeout(const Duration(seconds: 20));
 
     final jsonBody = response.body.isEmpty
         ? <String, dynamic>{}
@@ -63,6 +94,14 @@ class AuthService {
 
   Future<void> clearSession() {
     return _tokenStorage.clear();
+  }
+
+  Future<String> _readAccessToken() async {
+    final accessToken = await _tokenStorage.readAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const AuthException('تعذر التحقق من الجلسة الحالية. سجلي الدخول مرة أخرى.');
+    }
+    return accessToken;
   }
 
   String _readErrorMessage(Map<String, dynamic> jsonBody) {
@@ -84,6 +123,10 @@ class AuthService {
         return 'يوجد حساب مسجل مسبقاً بهذا الرقم.';
       case 'Passwords do not match':
         return 'كلمتا المرور غير متطابقتين.';
+      case 'Invalid token':
+        return 'الجلسة الحالية غير صالحة. سجلي الدخول مرة أخرى.';
+      case 'User not found':
+        return 'تعذر العثور على بيانات المستخدم الحالية.';
       default:
         return detail;
     }

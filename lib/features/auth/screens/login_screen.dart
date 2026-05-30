@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:flut/features/auth/services/auth_service.dart';
+import 'package:flut/features/admin/shell/admin_shell_screen.dart';
 import 'package:flut/features/driver/shell/driver_shell_screen.dart';
+import 'package:flut/features/officer/shell/officer_shell_screen.dart';
 
 import 'forgot_password_screen.dart';
 import 'signup_screen.dart';
@@ -162,8 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) =>
-                                              const ForgotPasswordScreen(),
+                                          builder: (_) => const ForgotPasswordScreen(),
                                         ),
                                       );
                                     },
@@ -259,6 +262,53 @@ class _LoginScreenState extends State<LoginScreen> {
         nationalId: _idController.text.trim(),
         password: _passwordController.text,
       );
+
+      final role = await _authService.getCurrentRole();
+      if (!mounted) return;
+
+      setState(() {
+        _isSubmitting = false;
+      });
+
+      if (role == 'driver') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const DriverShellScreen(),
+          ),
+        );
+        return;
+      }
+
+      if (role == 'inspector') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const OfficerShellScreen(),
+          ),
+        );
+        return;
+      }
+
+      if (role == 'admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const AdminShellScreen(),
+          ),
+        );
+        return;
+      }
+
+      await _authService.clearSession();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم تسجيل الدخول، لكن هذا النوع من الحسابات لا يملك واجهة داخل تطبيق الموبايل حالياً.',
+          ),
+        ),
+      );
     } on AuthException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -269,7 +319,18 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isSubmitting = false;
       });
-      return;
+    } on TimeoutException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'استغرق تسجيل الدخول وقتاً أطول من المتوقع. تأكدي أن الـ backend شغال ثم حاولي مرة أخرى.',
+          ),
+        ),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -282,18 +343,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isSubmitting = false;
       });
-      return;
     }
-
-    if (!mounted) return;
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        // OfficerShellScreen
-        builder: (_) => const DriverShellScreen(),
-      ),
-    );
   }
 
   String? _idValidator(String? value) {
@@ -301,11 +351,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (text.isEmpty) {
       return 'هذا الحقل مطلوب';
     }
-
     if (text.length < 6) {
       return 'أدخل رقم هوية صحيح';
     }
-
     return null;
   }
 
@@ -314,11 +362,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (text.isEmpty) {
       return 'هذا الحقل مطلوب';
     }
-
     if (text.length < 6) {
       return 'كلمة المرور يجب أن تكون 6 أحرف أو أكثر';
     }
-
     return null;
   }
 }

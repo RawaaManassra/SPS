@@ -56,9 +56,9 @@ class DriverHomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'إدارة جلسات الوقوف والمركبات من مكان واحد.',
+                'إدارة جلسات الوقوف والمركبات والمحفظة من مكان واحد.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Colors.white.withOpacity(0.92),
                 ),
               ),
               const SizedBox(height: 18),
@@ -68,7 +68,7 @@ class DriverHomeScreen extends StatelessWidget {
                 child: Ink(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.16),
+                    color: Colors.white.withOpacity(0.16),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -170,14 +170,14 @@ class HomeViolationsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'متابعة المخالفات',
+                      'المخالفات والمدفوعات',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'يمكنك عرض المخالفات الحالية وإكمال الدفع من مكان واحد.',
+                      'تابعي المخالفات الحالية، حالة الدفع، وقدّمي شكوى أو اعتراض عند الحاجة.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: const Color(0xFF5B6472),
                       ),
@@ -198,7 +198,7 @@ class HomeViolationsCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
               ),
             ),
-            child: const Text('عرض المخالفات'),
+            child: const Text('فتح صفحة المخالفات'),
           ),
         ],
       ),
@@ -225,7 +225,7 @@ class AppMessageCard extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: Colors.white.withOpacity(0.72),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
@@ -236,7 +236,7 @@ class AppMessageCard extends StatelessWidget {
           const SizedBox(width: 14),
           Expanded(
             child: Text(
-              'موقفي يساعدك تدير وقوفك بسهولة، وتتابع وقتك ومركباتك بدون الرجوع للعدادات التقليدية.',
+              'تطبيق موقفي يساعدك على إدارة الوقوف بشكل أسرع، ومتابعة الرصيد والمركبات والمخالفات بدون الرجوع لعدادات الوقوف التقليدية.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFF3F3A2F),
                 fontWeight: FontWeight.w600,
@@ -275,7 +275,7 @@ class EmptySessionCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'ابدأ جلسة جديدة باختيار المركبة والموقع والمدة وسيتم خصم المبلغ من المحفظة.',
+            'ابدئي جلسة جديدة باختيار المركبة والموقع والمدة، وسيتم خصم المبلغ من المحفظة مباشرة.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: const Color(0xFF5B6472),
             ),
@@ -481,7 +481,7 @@ class SectionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: Colors.white.withOpacity(0.92),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(

@@ -253,6 +253,7 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
     });
 
     await _loadWalletBalance();
+    await _loadActiveSession();
   }
 
   Future<void> _openExtendSessionFlow() async {
@@ -287,6 +288,7 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
       });
 
       await _loadWalletBalance();
+      await _loadActiveSession();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -334,9 +336,7 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
 
     try {
       await _parkingService.endSession(vehicleId: activeSession.vehicleId);
-      setState(() {
-        _activeSession = null;
-      });
+      await _loadActiveSession();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
