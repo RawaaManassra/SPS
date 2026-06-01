@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/admin/inspectors/screens/admin_inspectors_screen.dart';
+import 'package:flut/features/admin/models/admin_dashboard_data.dart';
+import 'package:flut/features/admin/services/admin_dashboard_service.dart';
 import 'package:flut/features/auth/screens/login_screen.dart';
 import 'package:flut/features/auth/services/auth_service.dart';
 
@@ -51,7 +54,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
 
     final pages = [
       const _AdminOverviewScreen(),
-      const _AdminInspectorsScreen(),
+      const AdminInspectorsScreen(),
       const _AdminComplaintsScreen(),
       const _AdminMapScreen(),
       _AdminAccountScreen(onLogout: _handleLogout),
@@ -139,7 +142,6 @@ class _AdminWebLayout extends StatelessWidget {
               const SizedBox(width: 36),
               Expanded(
                 child: Wrap(
-                  alignment: WrapAlignment.start,
                   spacing: 12,
                   runSpacing: 8,
                   children: List.generate(
@@ -271,8 +273,25 @@ class _AdminTopNavButton extends StatelessWidget {
   }
 }
 
-class _AdminOverviewScreen extends StatelessWidget {
+class _AdminOverviewScreen extends StatefulWidget {
   const _AdminOverviewScreen();
+
+  @override
+  State<_AdminOverviewScreen> createState() => _AdminOverviewScreenState();
+}
+
+class _AdminOverviewScreenState extends State<_AdminOverviewScreen> {
+  final AdminDashboardService _service = AdminDashboardService();
+
+  bool _isLoading = true;
+  String? _errorMessage;
+  AdminDashboardData? _dashboard;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -290,85 +309,360 @@ class _AdminOverviewScreen extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(28),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Text(
-                'مرحباً، إدارة البلدية',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'لوحة المتابعة اليومية',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'تابع الجلسات النشطة، المخالفات، القفل، وأداء المفتشين من مكان واحد.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: const Color(0xFFE7F8F5),
+                        height: 1.6,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                'واجهة متابعة تشغيلية للمفتشين والشكاوى والخريطة والخدمات الإدارية.',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: const Color(0xFFE7F8F5),
-                  height: 1.6,
+              const SizedBox(width: 18),
+              OutlinedButton.icon(
+                onPressed: _isLoading ? null : _loadDashboard,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white24),
                 ),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('تحديث'),
               ),
             ],
           ),
         ),
         const SizedBox(height: 24),
-        Text(
-          'الأقسام الرئيسية',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
+        if (_isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_errorMessage != null)
+          _AdminErrorCard(
+            message: _errorMessage!,
+            onRetry: _loadDashboard,
+          )
+        else if (_dashboard != null) ...[
+          GridView.count(
+            crossAxisCount: wide ? 4 : 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: wide ? 1.35 : 1.05,
+            children: [
+              _DashboardMetricCard(
+                title: 'الجلسات النشطة',
+                value: _dashboard!.activeSessionsCount.toString(),
+                subtitle: 'عدد الجلسات الجارية حالياً',
+                icon: Icons.local_parking_outlined,
+              ),
+              _DashboardMetricCard(
+                title: 'المخالفات اليوم',
+                value: _dashboard!.finesCount.toString(),
+                subtitle: 'المخالفات المسجلة اليوم',
+                icon: Icons.gavel_rounded,
+              ),
+              _DashboardMetricCard(
+                title: 'حالات القفل',
+                value: _dashboard!.clampEventsCount.toString(),
+                subtitle: 'عدد المركبات المقفلة اليوم',
+                icon: Icons.lock_outline_rounded,
+              ),
+              _DashboardMetricCard(
+                title: 'إيراد اليوم',
+                value: '${_dashboard!.dailyRevenue.toStringAsFixed(0)} شيكل',
+                subtitle: 'إجمالي رسوم الجلسات اليوم',
+                icon: Icons.payments_outlined,
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: wide ? 4 : 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: wide ? 1.25 : 1.05,
-          children: const [
-            _AdminStatCard(
-              title: 'المفتشون',
-              subtitle: 'إضافة ومتابعة حسابات التفتيش',
-              icon: Icons.badge_outlined,
-            ),
-            _AdminStatCard(
-              title: 'الشكاوى',
-              subtitle: 'مراجعة الاعتراضات والشكاوى',
-              icon: Icons.feedback_outlined,
-            ),
-            _AdminStatCard(
-              title: 'الخريطة',
-              subtitle: 'الجلسات والمركبات المقفلة',
-              icon: Icons.map_outlined,
-            ),
-            _AdminStatCard(
-              title: 'التقارير',
-              subtitle: 'مساحة مخصصة للملخصات والإحصائيات',
-              icon: Icons.assessment_outlined,
-            ),
-          ],
-        ),
+          const SizedBox(height: 24),
+          _InspectorPerformanceSection(inspectors: _dashboard!.inspectors),
+        ],
       ],
+    );
+  }
+
+  Future<void> _loadDashboard() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final dashboard = await _service.getDashboard();
+      if (!mounted) return;
+      setState(() {
+        _dashboard = dashboard;
+      });
+    } on AdminDashboardException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+}
+
+class _DashboardMetricCard extends StatelessWidget {
+  const _DashboardMetricCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE8E3D7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE7F2EF),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: const Color(0xFF0F766E)),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF0F766E),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF5B6472),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _AdminInspectorsScreen extends StatelessWidget {
-  const _AdminInspectorsScreen();
+class _InspectorPerformanceSection extends StatelessWidget {
+  const _InspectorPerformanceSection({
+    required this.inspectors,
+  });
+
+  final List<AdminInspectorPerformance> inspectors;
 
   @override
   Widget build(BuildContext context) {
-    return const _AdminSectionContent(
-      title: 'إدارة المفتشين',
-      subtitle:
-          'هذا القسم مخصص لإضافة حسابات المفتشين ومتابعة بياناتهم وصلاحياتهم. الربط الحالي يسمح بإنشاء المفتشين، ويمكننا توسيعه لاحقاً بعرض الحالة التشغيلية والتفاصيل الكاملة.',
-      icon: Icons.badge_outlined,
-      highlights: [
-        'إضافة حساب مفتش جديد',
-        'متابعة بيانات المفتشين',
-        'ربط الحالة التشغيلية لكل مفتش',
-      ],
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE8E3D7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'أداء المفتشين اليوم',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'ترتيب يومي بناءً على مجموع المخالفات وحالات القفل المسجلة.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF5B6472),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (inspectors.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F7F3),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Text(
+                'لا توجد بيانات أداء للمفتشين اليوم حتى الآن.',
+              ),
+            )
+          else
+            ...inspectors.asMap().entries.map(
+              (entry) => Padding(
+                padding: EdgeInsets.only(bottom: entry.key == inspectors.length - 1 ? 0 : 12),
+                child: _InspectorPerformanceTile(
+                  rank: entry.key + 1,
+                  performance: entry.value,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InspectorPerformanceTile extends StatelessWidget {
+  const _InspectorPerformanceTile({
+    required this.rank,
+    required this.performance,
+  });
+
+  final int rank;
+  final AdminInspectorPerformance performance;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F7F3),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE7F2EF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$rank',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF0F766E),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  performance.inspectorName,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'مخالفات: ${performance.finesCount} • قفل: ${performance.clampsCount}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF5B6472),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${performance.totalActions}',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF0F766E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminErrorCard extends StatelessWidget {
+  const _AdminErrorCard({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFF1B7B0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFB42318),
+            size: 34,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -381,12 +675,12 @@ class _AdminComplaintsScreen extends StatelessWidget {
     return const _AdminSectionContent(
       title: 'الشكاوى والاعتراضات',
       subtitle:
-          'هذا القسم سيكون مخصصاً لمراجعة شكاوى السائقين، متابعة الحالات المفتوحة، وتحديث القرار النهائي لكل شكوى أو اعتراض.',
+          'هذا القسم مخصص لمراجعة الشكاوى الواردة من السائقين وتحديث حالتها حسب قرار البلدية.',
       icon: Icons.feedback_outlined,
       highlights: [
-        'عرض جميع الشكاوى الواردة',
+        'عرض جميع الشكاوى',
         'تحديث حالة الشكوى',
-        'ربط الشكوى بالمخالفة أو بالحساب',
+        'ربط الشكوى بالمخالفة أو المستخدم',
       ],
     );
   }
@@ -400,7 +694,7 @@ class _AdminMapScreen extends StatelessWidget {
     return const _AdminSectionContent(
       title: 'الخريطة التشغيلية',
       subtitle:
-          'هذا القسم سيعرض الجلسات النشطة والمركبات المقفلة على مستوى المدينة، مع إمكانية التحول لاحقاً إلى لوحة متابعة لحظية أكثر تفصيلاً.',
+          'هذا القسم سيعرض الجلسات النشطة والمركبات المقفلة على مستوى المدينة، ويمكن لاحقاً توسيعه إلى لوحة تشغيل مباشرة.',
       icon: Icons.map_outlined,
       highlights: [
         'الجلسات النشطة',
@@ -426,7 +720,7 @@ class _AdminAccountScreen extends StatelessWidget {
         const _AdminSectionContent(
           title: 'حساب البلدية',
           subtitle:
-              'هذا القسم مخصص لإعدادات حساب الإدارة، ويمكن لاحقاً توسيعه ببيانات المستخدم والصلاحيات وسجل العمليات الإدارية.',
+              'هذا القسم مخصص لإعدادات حساب الإدارة، ويمكن توسيعه لاحقاً ببيانات المستخدم والصلاحيات وسجل العمليات.',
           icon: Icons.admin_panel_settings_outlined,
           highlights: [
             'بيانات الحساب',
@@ -535,61 +829,6 @@ class _AdminSectionContent extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AdminStatCard extends StatelessWidget {
-  const _AdminStatCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8E3D7)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE7F2EF),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: const Color(0xFF0F766E)),
-          ),
-          const Spacer(),
-          Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF5B6472),
-              height: 1.5,
             ),
           ),
         ],

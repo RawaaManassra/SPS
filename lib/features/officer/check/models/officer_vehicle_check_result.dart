@@ -27,9 +27,27 @@ class OfficerVehicleCheckResult {
   final double? latitude;
   final double? longitude;
 
+  String get _normalizedStatus {
+    final raw = '${status ?? ''} ${message ?? ''}'.toLowerCase().trim();
+    return raw;
+  }
+
   bool get isActive => status?.toLowerCase() == 'active';
-  bool get isUnregistered => status?.toLowerCase() == 'unregistered';
-  bool get hasNoActiveSession => message == 'No active session for this vehicle';
+  bool get isUnregistered =>
+      _normalizedStatus.contains('unregistered') ||
+      _normalizedStatus.contains('unrigestred') ||
+      _normalizedStatus.contains('not registered');
+  bool get isCurrentlyClamped {
+    if (_normalizedStatus.contains('unclamped')) {
+      return false;
+    }
+    if (_normalizedStatus.contains('clamped')) {
+      return true;
+    }
+    return isUnregistered && (clampedCount ?? 0) > 0;
+  }
+  bool get hasNoActiveSession =>
+      _normalizedStatus.contains('no active session');
   bool get isRegistered => vehicleId != null;
 
   factory OfficerVehicleCheckResult.fromJson(Map<String, dynamic> json) {

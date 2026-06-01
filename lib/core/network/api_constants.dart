@@ -42,8 +42,15 @@ class ApiConstants {
   static String markNotificationReadUrl(int notificationId) => '$baseUrl/notifications/$notificationId/read';
   static String get activityUrl => '$baseUrl/activity/';
   static String get mapUrl => '$baseUrl/map/';
+  static String get uploadImageUrl => '$baseUrl/upload/image';
   static String get extractPlateUrl => '$baseUrl/upload/extract-plate';
   static String inspectorCheckVehicleUrl(String licensePlate) => '$baseUrl/inspectors/$licensePlate';
   static String get inspectorViolationTypesUrl => '$baseUrl/inspectors/violation_types';
   static String get inspectorSetFineUrl => '$baseUrl/inspectors/set_fine';
+  static String get inspectorSetClampUrl => '$baseUrl/inspectors/set_clamp';
+  static String get inspectorUnclampUrl => '$baseUrl/inspectors/unclamp';
+  static String get adminDashboardUrl => '$baseUrl/admins/dashboard';
+  static String get adminAddInspectorUrl => '$baseUrl/admins/add_inspector';
+  static String adminDeleteInspectorUrl(String nationalId) => '$baseUrl/admins/delete_inspector/$nationalId';
+  static String adminEditInspectorUrl(String nationalId) => '$baseUrl/admins/edit/$nationalId';
 }
