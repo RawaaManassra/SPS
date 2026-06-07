@@ -21,7 +21,7 @@ class DriverProfileScreen extends StatefulWidget {
   final bool isLoading;
   final Future<void> Function() onRefreshProfile;
   final Future<void> Function(DriverProfileFormResult result) onSaveProfile;
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
 
   @override
   State<DriverProfileScreen> createState() => _DriverProfileScreenState();
@@ -314,7 +314,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     );
 
     if (shouldLogout == true) {
-      widget.onLogout();
+      await widget.onLogout();
     }
   }
 }

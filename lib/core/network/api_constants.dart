@@ -45,6 +45,7 @@ class ApiConstants {
   static String get uploadImageUrl => '$baseUrl/upload/image';
   static String get extractPlateUrl => '$baseUrl/upload/extract-plate';
   static String inspectorCheckVehicleUrl(String licensePlate) => '$baseUrl/inspectors/$licensePlate';
+  static String get inspectorHistoryUrl => '$baseUrl/inspectors/my-history';
   static String get inspectorViolationTypesUrl => '$baseUrl/inspectors/violation_types';
   static String get inspectorSetFineUrl => '$baseUrl/inspectors/set_fine';
   static String get inspectorSetClampUrl => '$baseUrl/inspectors/set_clamp';

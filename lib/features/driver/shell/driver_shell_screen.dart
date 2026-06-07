@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:flut/features/auth/screens/login_screen.dart';
+import 'package:flut/features/auth/services/auth_service.dart';
 import 'package:flut/features/driver/history/driver_history_screen.dart';
 import 'package:flut/features/driver/home/driver_home_screen.dart';
 import 'package:flut/features/driver/map/driver_map_screen.dart';
@@ -26,6 +28,7 @@ class DriverShellScreen extends StatefulWidget {
 }
 
 class _DriverShellScreenState extends State<DriverShellScreen> {
+  final _authService = AuthService();
   final _walletService = WalletService();
   final _vehicleService = VehicleService();
   final _parkingService = ParkingService();
@@ -378,7 +381,15 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
     await _loadWalletBalance();
   }
 
-  void _handleLogout() {
-    Navigator.popUntil(context, (route) => route.isFirst);
+  Future<void> _handleLogout() async {
+    await _authService.clearSession();
+    if (!mounted) return;
+
+    await Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
   }
 }

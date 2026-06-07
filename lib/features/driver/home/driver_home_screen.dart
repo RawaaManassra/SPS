@@ -141,11 +141,25 @@ class HomeViolationsCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF6E8),
+        gradient: const LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [
+            Color(0xFFFFF4EF),
+            Color(0xFFFFECE4),
+          ],
+        ),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFF0D39B)),
+        border: Border.all(color: const Color(0xFFF2C3AF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12B54708),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -153,15 +167,15 @@ class HomeViolationsCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFE7BF),
-                  borderRadius: BorderRadius.circular(16),
+                  color: const Color(0xFFFFE1D4),
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(
-                  Icons.gpp_good_outlined,
-                  color: Color(0xFFC8922E),
+                  Icons.report_gmailerrorred_rounded,
+                  color: Color(0xFFCC5A2E),
                 ),
               ),
               const SizedBox(width: 14),
@@ -173,13 +187,15 @@ class HomeViolationsCard extends StatelessWidget {
                       'المخالفات والمدفوعات',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
+                        color: const Color(0xFF7A271A),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'تابعي المخالفات الحالية، حالة الدفع، وقدّمي شكوى أو اعتراض عند الحاجة.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF5B6472),
+                        color: const Color(0xFF7D5246),
+                        height: 1.5,
                       ),
                     ),
                   ],
@@ -188,17 +204,19 @@ class HomeViolationsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          OutlinedButton(
+          ElevatedButton.icon(
             onPressed: onOpenViolations,
-            style: OutlinedButton.styleFrom(
+            icon: const Icon(Icons.open_in_new_rounded, size: 18),
+            style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 54),
-              side: const BorderSide(color: Color(0xFFC8922E)),
-              foregroundColor: const Color(0xFF8D6417),
+              backgroundColor: const Color(0xFFB54708),
+              foregroundColor: Colors.white,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
             ),
-            child: const Text('فتح صفحة المخالفات'),
+            label: const Text('فتح صفحة المخالفات'),
           ),
         ],
       ),

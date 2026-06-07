@@ -17,14 +17,14 @@ class OfficerShellScreen extends StatefulWidget {
 }
 
 class _OfficerShellScreenState extends State<OfficerShellScreen> {
-  final _profileService = OfficerProfileService();
-  final _authService = AuthService();
+  final OfficerProfileService _profileService = OfficerProfileService();
+  final AuthService _authService = AuthService();
 
   int _currentIndex = 0;
   OfficerUserProfile? _currentUser;
   bool _isProfileLoading = true;
 
-  static const _titles = [
+  static const List<String> _titles = [
     'الرئيسية',
     'السجل',
     'الحساب',
@@ -53,9 +53,7 @@ class _OfficerShellScreenState extends State<OfficerShellScreen> {
             profile: _currentUser,
             isLoading: _isProfileLoading,
             onRefreshProfile: _loadCurrentUser,
-            onLogout: () {
-              _handleLogout();
-            },
+            onLogout: _handleLogout,
           ),
         ],
       ),
@@ -144,7 +142,8 @@ class _OfficerShellScreenState extends State<OfficerShellScreen> {
                         icon: Icons.photo_camera_back_outlined,
                         title: 'تصوير اللوحة',
                         subtitle: 'استخدام الكاميرا أو صورة جاهزة',
-                        onTap: () => Navigator.of(context).pop(_CheckEntryOption.scan),
+                        onTap: () =>
+                            Navigator.of(context).pop(_CheckEntryOption.scan),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -153,7 +152,8 @@ class _OfficerShellScreenState extends State<OfficerShellScreen> {
                         icon: Icons.keyboard_alt_outlined,
                         title: 'رقم اللوحة',
                         subtitle: 'إدخال يدوي مباشر',
-                        onTap: () => Navigator.of(context).pop(_CheckEntryOption.manual),
+                        onTap: () =>
+                            Navigator.of(context).pop(_CheckEntryOption.manual),
                       ),
                     ),
                   ],
@@ -165,11 +165,12 @@ class _OfficerShellScreenState extends State<OfficerShellScreen> {
       },
     );
 
-    if (option == null || !context.mounted) {
-      return;
-    }
+    if (option == null || !context.mounted) return;
 
-    _openCheckVehicle(context, initialScanMode: option == _CheckEntryOption.scan);
+    _openCheckVehicle(
+      context,
+      initialScanMode: option == _CheckEntryOption.scan,
+    );
   }
 
   void _openCheckVehicle(BuildContext context, {bool initialScanMode = false}) {

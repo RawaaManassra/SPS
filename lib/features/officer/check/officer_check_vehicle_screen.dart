@@ -5,6 +5,7 @@ import 'package:flut/features/officer/check/models/officer_vehicle_check_result.
 import 'package:flut/features/officer/check/officer_issue_fine_screen.dart';
 import 'package:flut/features/officer/check/officer_set_clamp_screen.dart';
 import 'package:flut/features/officer/check/services/officer_inspector_service.dart';
+import 'package:flut/features/officer/shared/officer_activity_refresh_signal.dart';
 
 class OfficerCheckVehicleScreen extends StatefulWidget {
   const OfficerCheckVehicleScreen({
@@ -283,6 +284,7 @@ class _OfficerCheckVehicleScreenState extends State<OfficerCheckVehicleScreen> {
         clampedCount: (currentResult.clampedCount ?? 0) + 1,
       );
     });
+    notifyOfficerActivityChanged();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -308,8 +310,10 @@ class _OfficerCheckVehicleScreenState extends State<OfficerCheckVehicleScreen> {
       setState(() {
         _result = currentResult.copyWith(
           status: 'unclamped',
+          clampedCount: 0,
         );
       });
+      notifyOfficerActivityChanged();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -340,6 +344,7 @@ class _OfficerCheckVehicleScreenState extends State<OfficerCheckVehicleScreen> {
     );
 
     if (!mounted || updated != true) return;
+    notifyOfficerActivityChanged();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

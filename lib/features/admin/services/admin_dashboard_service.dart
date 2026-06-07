@@ -19,9 +19,7 @@ class AdminDashboardService {
     final accessToken = await _readAccessToken();
     final response = await _apiClient.get(
       ApiConstants.adminDashboardUrl,
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-      },
+      headers: {'Authorization': 'Bearer $accessToken'},
     );
 
     final jsonBody = response.body.isEmpty

@@ -1,12 +1,40 @@
 import 'package:flutter/material.dart';
 
-class OfficerHomeScreen extends StatelessWidget {
+import 'package:flut/features/officer/history/models/officer_history_item.dart';
+import 'package:flut/features/officer/history/services/officer_history_service.dart';
+import 'package:flut/features/officer/shared/officer_activity_refresh_signal.dart';
+
+class OfficerHomeScreen extends StatefulWidget {
   const OfficerHomeScreen({
     super.key,
     required this.onOpenCheckOptions,
   });
 
   final VoidCallback onOpenCheckOptions;
+
+  @override
+  State<OfficerHomeScreen> createState() => _OfficerHomeScreenState();
+}
+
+class _OfficerHomeScreenState extends State<OfficerHomeScreen> {
+  final OfficerHistoryService _historyService = OfficerHistoryService();
+
+  bool _isLoadingSummary = true;
+  int _todayFines = 0;
+  int _todayClamps = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    officerActivityRefreshSignal.addListener(_handleRefreshSignal);
+    _loadTodaySummary();
+  }
+
+  @override
+  void dispose() {
+    officerActivityRefreshSignal.removeListener(_handleRefreshSignal);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +84,7 @@ class OfficerHomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _OfficerPrimaryActionCard(
-          onTap: onOpenCheckOptions,
+          onTap: widget.onOpenCheckOptions,
         ),
         const SizedBox(height: 18),
         Container(
@@ -75,23 +103,29 @@ class OfficerHomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Row(
-                children: [
-                  Expanded(
-                    child: _OfficerStatCard(
-                      value: '18',
-                      label: 'مركبة مفحوصة',
+              if (_isLoadingSummary)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: _OfficerStatCard(
+                        value: '$_todayClamps',
+                        label: 'كلبشة مسجلة',
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: _OfficerStatCard(
-                      value: '4',
-                      label: 'مخالفة صادرة',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _OfficerStatCard(
+                        value: '$_todayFines',
+                        label: 'مخالفة صادرة',
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -131,6 +165,45 @@ class OfficerHomeScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _loadTodaySummary() async {
+    setState(() {
+      _isLoadingSummary = true;
+    });
+
+    try {
+      final items = await _historyService.getHistory();
+      final today = DateTime.now();
+      final todaysItems = items.where((item) {
+        final date = item.date?.toLocal();
+        if (date == null) return false;
+        return date.year == today.year &&
+            date.month == today.month &&
+            date.day == today.day;
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _todayFines = todaysItems.where((item) => item.isFine).length;
+        _todayClamps = todaysItems.where((item) => item.isClamp).length;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _todayFines = 0;
+        _todayClamps = 0;
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingSummary = false;
+      });
+    }
+  }
+
+  void _handleRefreshSignal() {
+    _loadTodaySummary();
   }
 }
 

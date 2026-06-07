@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flut/features/admin/inspectors/screens/admin_inspectors_screen.dart';
+import 'package:flut/features/admin/map/screens/admin_map_screen.dart';
 import 'package:flut/features/admin/models/admin_dashboard_data.dart';
+import 'package:flut/features/admin/operations/screens/admin_operations_screen.dart';
 import 'package:flut/features/admin/services/admin_dashboard_service.dart';
 import 'package:flut/features/auth/screens/login_screen.dart';
 import 'package:flut/features/auth/services/auth_service.dart';
@@ -16,7 +18,6 @@ class AdminShellScreen extends StatefulWidget {
 
 class _AdminShellScreenState extends State<AdminShellScreen> {
   final AuthService _authService = AuthService();
-
   int _currentIndex = 0;
 
   static const List<_AdminNavItem> _navItems = [
@@ -31,9 +32,9 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       selectedIcon: Icons.badge_rounded,
     ),
     _AdminNavItem(
-      title: 'الشكاوى',
-      icon: Icons.feedback_outlined,
-      selectedIcon: Icons.feedback_rounded,
+      title: 'المتابعة',
+      icon: Icons.fact_check_outlined,
+      selectedIcon: Icons.fact_check_rounded,
     ),
     _AdminNavItem(
       title: 'الخريطة',
@@ -51,18 +52,19 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final useWebLayout = kIsWeb || width >= 980;
-
-    final pages = [
+    final pages = <Widget>[
       const _AdminOverviewScreen(),
       const AdminInspectorsScreen(),
-      const _AdminComplaintsScreen(),
-      const _AdminMapScreen(),
+      const AdminOperationsScreen(),
+      const AdminMapScreen(),
       _AdminAccountScreen(onLogout: _handleLogout),
     ];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F4EC),
-      appBar: useWebLayout ? null : AppBar(title: Text(_navItems[_currentIndex].title)),
+      appBar: useWebLayout
+          ? null
+          : AppBar(title: Text(_navItems[_currentIndex].title)),
       body: useWebLayout
           ? _AdminWebLayout(
               currentIndex: _currentIndex,
@@ -70,10 +72,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
               onSelect: _handleSelect,
               child: pages[_currentIndex],
             )
-          : IndexedStack(
-              index: _currentIndex,
-              children: pages,
-            ),
+          : IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: useWebLayout
           ? null
           : NavigationBar(
@@ -324,7 +323,7 @@ class _AdminOverviewScreenState extends State<_AdminOverviewScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'تابع الجلسات النشطة، المخالفات، القفل، وأداء المفتشين من مكان واحد.',
+                      'تابع الجلسات النشطة والمخالفات وحالات القفل وأداء المفتشين من مكان واحد.',
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: const Color(0xFFE7F8F5),
                         height: 1.6,
@@ -353,10 +352,7 @@ class _AdminOverviewScreenState extends State<_AdminOverviewScreen> {
             child: Center(child: CircularProgressIndicator()),
           )
         else if (_errorMessage != null)
-          _AdminErrorCard(
-            message: _errorMessage!,
-            onRetry: _loadDashboard,
-          )
+          _AdminErrorCard(message: _errorMessage!, onRetry: _loadDashboard)
         else if (_dashboard != null) ...[
           GridView.count(
             crossAxisCount: wide ? 4 : 2,
@@ -533,20 +529,20 @@ class _InspectorPerformanceSection extends StatelessWidget {
                 color: const Color(0xFFF8F7F3),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Text(
-                'لا توجد بيانات أداء للمفتشين اليوم حتى الآن.',
-              ),
+              child: const Text('لا توجد بيانات أداء للمفتشين اليوم حتى الآن.'),
             )
           else
             ...inspectors.asMap().entries.map(
-              (entry) => Padding(
-                padding: EdgeInsets.only(bottom: entry.key == inspectors.length - 1 ? 0 : 12),
-                child: _InspectorPerformanceTile(
-                  rank: entry.key + 1,
-                  performance: entry.value,
+                  (entry) => Padding(
+                    padding: EdgeInsets.only(
+                      bottom: entry.key == inspectors.length - 1 ? 0 : 12,
+                    ),
+                    child: _InspectorPerformanceTile(
+                      rank: entry.key + 1,
+                      performance: entry.value,
+                    ),
+                  ),
                 ),
-              ),
-            ),
         ],
       ),
     );
@@ -651,10 +647,7 @@ class _AdminErrorCard extends StatelessWidget {
             size: 34,
           ),
           const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-          ),
+          Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: onRetry,
@@ -663,44 +656,6 @@ class _AdminErrorCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _AdminComplaintsScreen extends StatelessWidget {
-  const _AdminComplaintsScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _AdminSectionContent(
-      title: 'الشكاوى والاعتراضات',
-      subtitle:
-          'هذا القسم مخصص لمراجعة الشكاوى الواردة من السائقين وتحديث حالتها حسب قرار البلدية.',
-      icon: Icons.feedback_outlined,
-      highlights: [
-        'عرض جميع الشكاوى',
-        'تحديث حالة الشكوى',
-        'ربط الشكوى بالمخالفة أو المستخدم',
-      ],
-    );
-  }
-}
-
-class _AdminMapScreen extends StatelessWidget {
-  const _AdminMapScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _AdminSectionContent(
-      title: 'الخريطة التشغيلية',
-      subtitle:
-          'هذا القسم سيعرض الجلسات النشطة والمركبات المقفلة على مستوى المدينة، ويمكن لاحقاً توسيعه إلى لوحة تشغيل مباشرة.',
-      icon: Icons.map_outlined,
-      highlights: [
-        'الجلسات النشطة',
-        'المركبات المقفلة',
-        'مؤشرات تشغيلية على الخريطة',
-      ],
     );
   }
 }
@@ -719,13 +674,12 @@ class _AdminAccountScreen extends StatelessWidget {
       children: [
         const _AdminSectionContent(
           title: 'حساب البلدية',
-          subtitle:
-              'هذا القسم مخصص لإعدادات حساب الإدارة، ويمكن توسيعه لاحقاً ببيانات المستخدم والصلاحيات وسجل العمليات.',
+          subtitle: 'إدارة جلسة الدخول الحالية وتسجيل الخروج من لوحة البلدية.',
           icon: Icons.admin_panel_settings_outlined,
           highlights: [
             'بيانات الحساب',
-            'الصلاحيات والإعدادات',
-            'سجل التغييرات الإدارية',
+            'إدارة الجلسة',
+            'تسجيل الخروج',
           ],
         ),
         const SizedBox(height: 18),

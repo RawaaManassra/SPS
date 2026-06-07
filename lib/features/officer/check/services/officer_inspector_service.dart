@@ -264,6 +264,7 @@ class OfficerInspectorService {
             },
             body: {
               'license_plate': licensePlate,
+              'inspector_id': 0,
             },
           )
           .timeout(const Duration(seconds: 20));
