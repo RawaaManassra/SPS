@@ -45,11 +45,13 @@ class AdminDashboardData {
 
 class AdminInspectorPerformance {
   const AdminInspectorPerformance({
+    required this.inspectorId,
     required this.inspectorName,
     required this.finesCount,
     required this.clampsCount,
   });
 
+  final int inspectorId;
   final String inspectorName;
   final int finesCount;
   final int clampsCount;
@@ -58,6 +60,7 @@ class AdminInspectorPerformance {
 
   factory AdminInspectorPerformance.fromJson(Map<String, dynamic> json) {
     return AdminInspectorPerformance(
+      inspectorId: _readInt(json['inspector_id']),
       inspectorName: (json['inspector_name'] ?? 'مفتش غير محدد').toString(),
       finesCount: _readInt(json['fines_count']),
       clampsCount: _readInt(json['clamps_count']),

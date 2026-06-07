@@ -283,9 +283,13 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
 
       setState(() {
         _activeSession = activeSession.copyWith(
-          durationMinutes: activeSession.durationMinutes + extendResult.extraMinutes,
-          totalPrice: activeSession.totalPrice + (extendResult.extraMinutes ~/ 30),
-          endsAt: activeSession.endsAt.add(Duration(minutes: extendResult.extraMinutes)),
+          durationMinutes:
+              activeSession.durationMinutes + extendResult.extraMinutes,
+          totalPrice:
+              activeSession.totalPrice + (extendResult.extraMinutes ~/ 30),
+          endsAt: activeSession.endsAt.add(
+            Duration(minutes: extendResult.extraMinutes),
+          ),
           paymentMethodLabel: 'المحفظة',
         );
       });
@@ -296,7 +300,9 @@ class _DriverShellScreenState extends State<DriverShellScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('تم تمديد الجلسة ${extendResult.extraMinutes} دقيقة بنجاح.'),
+          content: Text(
+            'تم تمديد الجلسة ${extendResult.extraMinutes} دقيقة بنجاح.',
+          ),
         ),
       );
     } on ParkingException catch (error) {

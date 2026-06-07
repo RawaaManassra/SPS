@@ -4,7 +4,6 @@ import 'package:flut/features/admin/clamps/models/admin_clamp_event.dart';
 import 'package:flut/features/admin/complaints/screens/admin_complaints_screen.dart';
 import 'package:flut/features/admin/fines/models/admin_fine.dart';
 import 'package:flut/features/admin/operations/services/admin_operations_service.dart';
-import 'package:flut/features/admin/violations/models/admin_violation_type.dart';
 
 class AdminOperationsScreen extends StatefulWidget {
   const AdminOperationsScreen({super.key});
@@ -20,7 +19,7 @@ class _AdminOperationsScreenState extends State<AdminOperationsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -56,7 +55,6 @@ class _AdminOperationsScreenState extends State<AdminOperationsScreen>
               Tab(text: 'الشكاوى'),
               Tab(text: 'المخالفات'),
               Tab(text: 'الكلبشات'),
-              Tab(text: 'أنواع المخالفات'),
             ],
           ),
         ),
@@ -69,7 +67,6 @@ class _AdminOperationsScreenState extends State<AdminOperationsScreen>
               AdminComplaintsScreen(),
               _AdminFinesPanel(),
               _AdminClampEventsPanel(),
-              _AdminViolationTypesPanel(),
             ],
           ),
         ),
@@ -208,7 +205,7 @@ class _AdminClampEventsPanelState extends State<_AdminClampEventsPanel> {
               child: _DataTile(
                 title: 'كلبشة #${item.id}',
                 subtitle:
-                    'المفتش: #${item.inspectorId} • السيارة: ${item.vehicleId != null ? '#${item.vehicleId}' : 'غير مسجلة #${item.unregisteredVehicleId ?? 0}'}',
+                    'المفتش: ${item.inspectorName?.trim().isNotEmpty == true ? item.inspectorName! : 'غير محدد'}',
                 trailing: item.status == 'clamped' ? 'مكلبشة' : 'مفكوكة',
                 details:
                     'الموقع: ${item.latitude.toStringAsFixed(4)}, ${item.longitude.toStringAsFixed(4)} • التاريخ: ${_formatDate(item.clampedAt)}',
@@ -240,202 +237,9 @@ class _AdminClampEventsPanelState extends State<_AdminClampEventsPanel> {
   }
 }
 
-class _AdminViolationTypesPanel extends StatefulWidget {
-  const _AdminViolationTypesPanel();
-
-  @override
-  State<_AdminViolationTypesPanel> createState() =>
-      _AdminViolationTypesPanelState();
-}
-
-class _AdminViolationTypesPanelState extends State<_AdminViolationTypesPanel> {
-  final _service = AdminOperationsService();
-  bool _isLoading = true;
-  bool _isSaving = false;
-  String? _errorMessage;
-  List<AdminViolationType> _items = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _OperationsCard(
-      title: 'أنواع المخالفات',
-      leadingAction: ElevatedButton.icon(
-        onPressed: _isSaving ? null : _createViolationType,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('إضافة نوع'),
-      ),
-      onRefresh: _isLoading ? null : _load,
-      isLoading: _isLoading,
-      errorMessage: _errorMessage,
-      onRetry: _load,
-      isEmpty: _items.isEmpty,
-      emptyMessage: 'لا توجد أنواع مخالفات حالياً.',
-      children: _items
-          .map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _DataTile(
-                title: item.name,
-                subtitle: 'القيمة: ${item.amount.toStringAsFixed(0)} شيكل',
-                trailing: '#${item.id}',
-                actionLabel: 'تعديل',
-                onAction: _isSaving ? null : () => _editViolationType(item),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-    try {
-      final result = await _service.getViolationTypes();
-      if (!mounted) return;
-      setState(() => _items = result);
-    } on AdminOperationsException catch (error) {
-      if (!mounted) return;
-      setState(() => _errorMessage = error.message);
-    } finally {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _createViolationType() async {
-    final payload = await _showViolationTypeDialog();
-    if (!mounted || payload == null) return;
-
-    setState(() => _isSaving = true);
-    try {
-      await _service.addViolationType(
-        name: payload.name,
-        amount: payload.amount,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تمت إضافة نوع المخالفة بنجاح.')),
-      );
-      await _load();
-    } on AdminOperationsException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-    } finally {
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-    }
-  }
-
-  Future<void> _editViolationType(AdminViolationType item) async {
-    final payload = await _showViolationTypeDialog(item: item);
-    if (!mounted || payload == null) return;
-
-    setState(() => _isSaving = true);
-    try {
-      await _service.updateViolationType(
-        violationId: item.id,
-        name: payload.name,
-        amount: payload.amount,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تحديث نوع المخالفة بنجاح.')),
-      );
-      await _load();
-    } on AdminOperationsException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-    } finally {
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-    }
-  }
-
-  Future<_ViolationTypePayload?> _showViolationTypeDialog({
-    AdminViolationType? item,
-  }) async {
-    final nameController = TextEditingController(text: item?.name ?? '');
-    final amountController =
-        TextEditingController(text: item == null ? '' : item.amount.toString());
-    final formKey = GlobalKey<FormState>();
-
-    final result = await showDialog<_ViolationTypePayload>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(item == null ? 'إضافة نوع مخالفة' : 'تعديل نوع مخالفة'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'اسم المخالفة'),
-                  validator: (value) =>
-                      (value ?? '').trim().isEmpty ? 'هذا الحقل مطلوب' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: amountController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'القيمة'),
-                  validator: (value) {
-                    final text = (value ?? '').trim();
-                    if (text.isEmpty) return 'هذا الحقل مطلوب';
-                    if (double.tryParse(text) == null) return 'أدخلي رقماً صحيحاً';
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (!(formKey.currentState?.validate() ?? false)) return;
-                Navigator.of(context).pop(
-                  _ViolationTypePayload(
-                    name: nameController.text.trim(),
-                    amount: double.parse(amountController.text.trim()),
-                  ),
-                );
-              },
-              child: const Text('حفظ'),
-            ),
-          ],
-        );
-      },
-    );
-
-    nameController.dispose();
-    amountController.dispose();
-    return result;
-  }
-}
-
 class _OperationsCard extends StatelessWidget {
   const _OperationsCard({
     required this.title,
-    this.leadingAction,
     this.filters,
     required this.onRefresh,
     required this.isLoading,
@@ -447,7 +251,6 @@ class _OperationsCard extends StatelessWidget {
   });
 
   final String title;
-  final Widget? leadingAction;
   final Widget? filters;
   final VoidCallback? onRefresh;
   final bool isLoading;
@@ -481,10 +284,6 @@ class _OperationsCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (leadingAction != null) ...[
-                leadingAction!,
-                const SizedBox(width: 10),
-              ],
               OutlinedButton.icon(
                 onPressed: onRefresh,
                 icon: const Icon(Icons.refresh_rounded),
@@ -530,16 +329,12 @@ class _DataTile extends StatelessWidget {
     required this.subtitle,
     required this.trailing,
     this.details,
-    this.actionLabel,
-    this.onAction,
   });
 
   final String title;
   final String subtitle;
   final String trailing;
   final String? details;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -586,16 +381,6 @@ class _DataTile extends StatelessWidget {
               details!,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: const Color(0xFF5B6472),
-              ),
-            ),
-          ],
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
               ),
             ),
           ],
@@ -663,16 +448,6 @@ Widget _statusChips({
       );
     }).toList(),
   );
-}
-
-class _ViolationTypePayload {
-  const _ViolationTypePayload({
-    required this.name,
-    required this.amount,
-  });
-
-  final String name;
-  final double amount;
 }
 
 String _formatDate(DateTime? date) {

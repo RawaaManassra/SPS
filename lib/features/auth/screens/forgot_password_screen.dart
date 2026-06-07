@@ -71,7 +71,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       children: [
                         const _FlowHeader(
                           title: 'إرسال الرمز',
-                          subtitle: 'سيتم إرسال رمز مكون من 6 أرقام برسالة نصية إلى رقم الجوال.',
+                          subtitle:
+                              'سيتم إرسال رمز مكون من 6 أرقام برسالة نصية إلى رقم الجوال.',
                           icon: Icons.sms_outlined,
                         ),
                         const SizedBox(height: 18),

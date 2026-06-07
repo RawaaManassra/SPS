@@ -79,16 +79,11 @@ class _AdminInspectorsScreenState extends State<AdminInspectorsScreen> {
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'المفتشون النشطون اليوم',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'المفتشون النشطون اليوم',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -117,17 +112,20 @@ class _AdminInspectorsScreenState extends State<AdminInspectorsScreen> {
                 color: const Color(0xFFF8F7F3),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Text(
-                'لا توجد بيانات أداء للمفتشين اليوم حتى الآن.',
-              ),
+              child: const Text('لا توجد بيانات أداء للمفتشين اليوم حتى الآن.'),
             )
           else
             ..._inspectors.asMap().entries.map(
               (entry) => Padding(
-                padding: EdgeInsets.only(bottom: entry.key == _inspectors.length - 1 ? 0 : 12),
+                padding: EdgeInsets.only(
+                  bottom: entry.key == _inspectors.length - 1 ? 0 : 12,
+                ),
                 child: _InspectorPerformanceListTile(
                   rank: entry.key + 1,
                   performance: entry.value,
+                  onDelete: _isSubmitting
+                      ? null
+                      : () => _deleteInspector(entry.value),
                 ),
               ),
             ),
@@ -182,8 +180,56 @@ class _AdminInspectorsScreenState extends State<AdminInspectorsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('تعذر حفظ بيانات المفتش حالياً. حاولي مرة أخرى.'),
+          content: Text('تعذر حفظ بيانات المفتش حالياً. حاول مرة أخرى.'),
         ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
+  }
+
+  Future<void> _deleteInspector(AdminInspectorPerformance performance) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف المفتش'),
+        content: Text('هل تريد حذف المفتش ${performance.inspectorName}؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFB42318),
+            ),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _inspectorService.deleteInspector(performance.inspectorId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حذف المفتش بنجاح.')),
+      );
+      await _loadInspectors();
+    } on AdminInspectorException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
       );
     } finally {
       if (!mounted) return;
@@ -336,7 +382,9 @@ class _AddInspectorCardState extends State<_AddInspectorCard> {
       nationalId: _nationalIdController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
       password: _passwordController.text.trim(),
-      email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+      email: _emailController.text.trim().isEmpty
+          ? null
+          : _emailController.text.trim(),
     );
 
     await widget.onSubmit(request);
@@ -363,10 +411,12 @@ class _InspectorPerformanceListTile extends StatelessWidget {
   const _InspectorPerformanceListTile({
     required this.rank,
     required this.performance,
+    required this.onDelete,
   });
 
   final int rank;
   final AdminInspectorPerformance performance;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -409,12 +459,20 @@ class _InspectorPerformanceListTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'مخالفات: ${performance.finesCount} • قفل: ${performance.clampsCount}',
+                  'مخالفات: ${performance.finesCount} • كلبشات: ${performance.clampsCount}',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFF5B6472),
                   ),
                 ),
               ],
+            ),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            tooltip: 'حذف المفتش',
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: Color(0xFFB42318),
             ),
           ),
           Text(

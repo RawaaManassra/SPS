@@ -52,6 +52,6 @@ class ApiConstants {
   static String get inspectorUnclampUrl => '$baseUrl/inspectors/unclamp';
   static String get adminDashboardUrl => '$baseUrl/admins/dashboard';
   static String get adminAddInspectorUrl => '$baseUrl/admins/add_inspector';
-  static String adminDeleteInspectorUrl(String nationalId) => '$baseUrl/admins/delete_inspector/$nationalId';
+  static String adminDeleteInspectorUrl(int inspectorId) => '$baseUrl/admins/delete_inspector/$inspectorId';
   static String adminEditInspectorUrl(String nationalId) => '$baseUrl/admins/edit/$nationalId';
 }

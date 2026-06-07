@@ -211,7 +211,7 @@ class _AdminBrand extends StatelessWidget {
               ),
             ),
             Text(
-              'إدارة نظام موقفي',
+              'إدارة نظام Park Pal',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFF64748B),
               ),

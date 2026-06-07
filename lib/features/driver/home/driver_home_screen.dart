@@ -192,7 +192,7 @@ class HomeViolationsCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'تابعي المخالفات الحالية، حالة الدفع، وقدّمي شكوى أو اعتراض عند الحاجة.',
+                      'تابع المخالفات الحالية، حالة الدفع، وقدّم شكوى أو اعتراض عند الحاجة.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: const Color(0xFF7D5246),
                         height: 1.5,
@@ -234,8 +234,9 @@ class AppMessageCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0E7D6),
+        color: const Color(0xFFEAF7F1),
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFD3EBDD)),
       ),
       child: Row(
         children: [
@@ -243,18 +244,18 @@ class AppMessageCard extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.72),
+              color: const Color(0xFFDDF2E7),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
               Icons.verified_user_outlined,
-              color: Color(0xFFC8922E),
+              color: Color(0xFF2F855A),
             ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
-              'تطبيق موقفي يساعدك على إدارة الوقوف بشكل أسرع، ومتابعة الرصيد والمركبات والمخالفات بدون الرجوع لعدادات الوقوف التقليدية.',
+              'تطبيق Park Pal يساعدك على إدارة الوقوف بشكل أسرع، ومتابعة الرصيد والمركبات والمخالفات بدون الرجوع لعدادات الوقوف التقليدية.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFF3F3A2F),
                 fontWeight: FontWeight.w600,
@@ -293,7 +294,7 @@ class EmptySessionCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'ابدئي جلسة جديدة باختيار المركبة والموقع والمدة، وسيتم خصم المبلغ من المحفظة مباشرة.',
+            'ابدأ جلسة جديدة باختيار المركبة والموقع والمدة، وسيتم خصم المبلغ من المحفظة مباشرة.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: const Color(0xFF5B6472),
             ),

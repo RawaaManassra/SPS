@@ -133,8 +133,9 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8F7F3),
+            color: const Color(0xFFEAF7F1),
             borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFFD3EBDD)),
           ),
           child: Row(
             children: [
@@ -142,12 +143,12 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE7F2EF),
+                  color: const Color(0xFFDDF2E7),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.info_outline_rounded,
-                  color: Color(0xFF0F766E),
+                  color: Color(0xFF2F855A),
                 ),
               ),
               const SizedBox(width: 14),

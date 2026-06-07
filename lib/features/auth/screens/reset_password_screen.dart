@@ -71,7 +71,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 if (_currentStep == 0)
                   _ResetSection(
                     title: 'رمز التحقق',
-                    subtitle: 'أدخل الرمز الذي وصلك برسالة نصية على رقم الجوال.',
+                    subtitle:
+                        'أدخل الرمز الذي وصلك برسالة نصية على رقم الجوال.',
                     icon: Icons.verified_user_outlined,
                     child: Form(
                       key: _codeFormKey,
@@ -212,7 +213,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => const LoginScreen(
-          successMessage: 'تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.',
+          successMessage:
+              'تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.',
         ),
       ),
       (route) => false,

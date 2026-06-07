@@ -5,6 +5,7 @@ class AdminClampEvent {
     this.vehicleId,
     this.unregisteredVehicleId,
     required this.inspectorId,
+    this.inspectorName,
     required this.latitude,
     required this.longitude,
     required this.status,
@@ -19,6 +20,7 @@ class AdminClampEvent {
   final int? vehicleId;
   final int? unregisteredVehicleId;
   final int inspectorId;
+  final String? inspectorName;
   final double latitude;
   final double longitude;
   final String status;
@@ -35,6 +37,7 @@ class AdminClampEvent {
       unregisteredVehicleId:
           (json['unregistered_vehicle_id'] as num?)?.toInt(),
       inspectorId: (json['inspector_id'] as num?)?.toInt() ?? 0,
+      inspectorName: json['inspector_name']?.toString(),
       latitude: (json['lat'] as num?)?.toDouble() ?? 0,
       longitude: (json['lng'] as num?)?.toDouble() ?? 0,
       status: (json['status'] ?? '').toString(),

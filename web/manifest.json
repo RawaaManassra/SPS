@@ -1,11 +1,11 @@
 {
-    "name": "flut",
-    "short_name": "flut",
+    "name": "Park Pal",
+    "short_name": "Park Pal",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Park Pal smart parking system.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

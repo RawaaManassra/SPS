@@ -32,8 +32,8 @@ class DriverParkingSession {
     Map<String, dynamic> json, {
     required DriverVehicle vehicle,
   }) {
-    final startedAt = DateTime.tryParse((json['start_time'] ?? '') as String) ?? DateTime.now();
-    final endsAt = DateTime.tryParse((json['expiry_time'] ?? '') as String) ?? DateTime.now();
+    final startedAt = _parseBackendDateTime(json['start_time']) ?? DateTime.now();
+    final endsAt = _parseBackendDateTime(json['expiry_time']) ?? DateTime.now();
     final rawDurationMinutes = endsAt.difference(startedAt).inMinutes;
     final durationMinutes = rawDurationMinutes < 0 ? 0 : rawDurationMinutes;
 
@@ -48,8 +48,8 @@ class DriverParkingSession {
       paymentMethodLabel: 'المحفظة',
       durationMinutes: durationMinutes,
       totalPrice: (json['amount_paid'] as num?)?.toInt() ?? 0,
-      startedAt: startedAt.toLocal(),
-      endsAt: endsAt.toLocal(),
+      startedAt: startedAt,
+      endsAt: endsAt,
     );
   }
 
@@ -83,5 +83,28 @@ class DriverParkingSession {
     }
 
     return '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+  }
+
+  static DateTime? _parseBackendDateTime(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return null;
+
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+
+    if (raw.endsWith('Z') || raw.contains('+')) {
+      return parsed.toLocal();
+    }
+
+    return DateTime.utc(
+      parsed.year,
+      parsed.month,
+      parsed.day,
+      parsed.hour,
+      parsed.minute,
+      parsed.second,
+      parsed.millisecond,
+      parsed.microsecond,
+    ).toLocal();
   }
 }

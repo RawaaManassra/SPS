@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:flut/features/auth/services/auth_service.dart';
 import 'package:flut/features/admin/shell/admin_shell_screen.dart';
+import 'package:flut/features/auth/services/auth_service.dart';
 import 'package:flut/features/driver/shell/driver_shell_screen.dart';
 import 'package:flut/features/officer/shell/officer_shell_screen.dart';
 
@@ -47,9 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.successMessage!),
-          ),
+          SnackBar(content: Text(widget.successMessage!)),
         );
       });
     }
@@ -91,16 +89,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.local_parking_rounded,
-                        color: Colors.white,
-                        size: 48,
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'P',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 42,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'موقفي',
+                    'Park Pal',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
@@ -166,7 +168,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => const ForgotPasswordScreen(),
+                                          builder: (_) =>
+                                              const ForgotPasswordScreen(),
                                         ),
                                       );
                                     },
@@ -198,14 +201,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       vertical: 16,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0E7D6),
+                      color: const Color(0xFFEAF7F1),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFD3EBDD)),
                     ),
                     child: Row(
                       children: [
                         const Icon(
                           Icons.verified_user_outlined,
-                          color: Color(0xFFC8922E),
+                          color: Color(0xFF2F855A),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -312,9 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on AuthException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-        ),
+        SnackBar(content: Text(error.message)),
       );
       setState(() {
         _isSubmitting = false;
@@ -324,7 +326,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'استغرق تسجيل الدخول وقتاً أطول من المتوقع. تأكدي أن الـ backend شغال ثم حاولي مرة أخرى.',
+            'استغرق تسجيل الدخول وقتاً أطول من المتوقع. تأكد أن الـ backend شغال ثم حاول مرة أخرى.',
           ),
         ),
       );
@@ -336,7 +338,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'تعذر الوصول إلى الخادم. تأكدي أن الـ backend شغال ثم حاولي مرة أخرى.',
+            'تعذر الوصول إلى الخادم. تأكد أن الـ backend شغال ثم حاول مرة أخرى.',
           ),
         ),
       );

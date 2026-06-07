@@ -133,7 +133,7 @@ class _DriverMapScreenState extends State<DriverMapScreen> {
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.flut',
+                userAgentPackageName: 'com.example.parkpal',
         ),
         MarkerLayer(markers: markers),
         const RichAttributionWidget(

@@ -114,7 +114,9 @@ class _DriverComplaintsScreenState extends State<DriverComplaintsScreen> {
               ...List.generate(_complaints.length, (index) {
                 final complaint = _complaints[index];
                 return Padding(
-                  padding: EdgeInsets.only(bottom: index == _complaints.length - 1 ? 0 : 12),
+                  padding: EdgeInsets.only(
+                    bottom: index == _complaints.length - 1 ? 0 : 12,
+                  ),
                   child: _ComplaintCard(
                     complaint: complaint,
                     onDelete: complaint.status.toLowerCase() == 'pending'
@@ -214,7 +216,8 @@ class _CreateComplaintScreenState extends State<_CreateComplaintScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialComplaintType != null && widget.initialComplaintType!.trim().isNotEmpty) {
+    if (widget.initialComplaintType != null &&
+        widget.initialComplaintType!.trim().isNotEmpty) {
       _selectedType = widget.initialComplaintType!;
     }
     _descriptionController.text = widget.initialDescription ?? '';
@@ -270,6 +273,10 @@ class _CreateComplaintScreenState extends State<_CreateComplaintScreen> {
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: _descriptionController,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    textDirection: TextDirection.rtl,
+                    textAlign: TextAlign.right,
                     maxLines: 6,
                     validator: (value) {
                       if ((value ?? '').trim().isEmpty) {
@@ -279,6 +286,7 @@ class _CreateComplaintScreenState extends State<_CreateComplaintScreen> {
                     },
                     decoration: const InputDecoration(
                       labelText: 'وصف الشكوى',
+                      hintText: 'اكتب تفاصيل الشكوى هنا...',
                       alignLabelWithHint: true,
                       prefixIcon: Icon(Icons.edit_note_rounded),
                     ),

@@ -39,12 +39,44 @@ class AdminInspectorService {
       throw AdminInspectorException(_readErrorMessage(jsonBody));
     } on TimeoutException {
       throw const AdminInspectorException(
-        'استغرق حفظ بيانات المفتش وقتاً أطول من المتوقع. تأكدي من أن الباك اند يعمل ثم حاولي مرة أخرى.',
+        'استغرق حفظ بيانات المفتش وقتاً أطول من المتوقع. تأكد من أن الباك اند يعمل ثم حاول مرة أخرى.',
       );
     } catch (error) {
       if (error is AdminInspectorException) rethrow;
       throw const AdminInspectorException(
-        'تعذر حفظ بيانات المفتش حالياً. حاولي مرة أخرى أو راجعي الباك اند.',
+        'تعذر حفظ بيانات المفتش حالياً. حاول مرة أخرى أو راجع الباك اند.',
+      );
+    }
+  }
+
+  Future<void> deleteInspector(int inspectorId) async {
+    final accessToken = await _readAccessToken();
+
+    try {
+      final response = await _apiClient
+          .delete(
+            ApiConstants.adminDeleteInspectorUrl(inspectorId),
+            headers: {
+              'Authorization': 'Bearer $accessToken',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final jsonBody = _decodeJsonMap(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return;
+      }
+
+      throw AdminInspectorException(_readErrorMessage(jsonBody));
+    } on TimeoutException {
+      throw const AdminInspectorException(
+        'استغرق حذف المفتش وقتاً أطول من المتوقع. تأكد من أن الباك اند يعمل ثم حاول مرة أخرى.',
+      );
+    } catch (error) {
+      if (error is AdminInspectorException) rethrow;
+      throw const AdminInspectorException(
+        'تعذر حذف المفتش حالياً. حاول مرة أخرى أو راجع الباك اند.',
       );
     }
   }
@@ -53,7 +85,7 @@ class AdminInspectorService {
     final accessToken = await _tokenStorage.readAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
       throw const AdminInspectorException(
-        'تعذر التحقق من الجلسة الحالية. سجلي الدخول مرة أخرى.',
+        'تعذر التحقق من الجلسة الحالية. سجل الدخول مرة أخرى.',
       );
     }
     return accessToken;
@@ -69,11 +101,13 @@ class AdminInspectorService {
           return 'البريد الإلكتروني مستخدم مسبقاً.';
         case 'Admin access required':
           return 'هذا الحساب لا يملك صلاحية إدارة البلدية.';
+        case "Inspector doesn't exist":
+          return 'المفتش غير موجود.';
         default:
           return detail;
       }
     }
-    return 'تعذر حفظ بيانات المفتش حالياً.';
+    return 'تعذر تنفيذ الطلب على المفتش حالياً.';
   }
 
   Map<String, dynamic> _decodeJsonMap(String responseBody) {
@@ -87,9 +121,7 @@ class AdminInspectorService {
         return decoded;
       }
     } catch (_) {
-      return <String, dynamic>{
-        'detail': responseBody,
-      };
+      return <String, dynamic>{'detail': responseBody};
     }
 
     return <String, dynamic>{};
